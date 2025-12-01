@@ -37,28 +37,34 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b z-50 flex items-center px-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card/80 backdrop-blur-lg border-b z-50 flex items-center px-4 shadow-sm">
         <Button 
           variant="ghost" 
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="hover:bg-accent transition-colors"
         >
           {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </Button>
-        <h1 className="ml-3 text-xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-          P!VOT
-        </h1>
+        <div className="ml-3 flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
+            <Smartphone className="w-4 h-4 text-white" />
+          </div>
+          <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+            P!VOT
+          </h1>
+        </div>
       </div>
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed top-0 left-0 h-full w-64 bg-card border-r transition-transform duration-300 z-40",
+        "fixed top-0 left-0 h-full w-64 bg-sidebar/95 backdrop-blur-xl border-r shadow-xl transition-transform duration-300 ease-in-out z-40",
         "lg:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        sidebarOpen ? "translate-x-0 animate-slide-in-left" : "-translate-x-full"
       )}>
         <div className="p-6">
-          <div className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
+          <div className="flex items-center gap-3 mb-10">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow hover-scale">
               <Smartphone className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
@@ -67,7 +73,7 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
           </div>
 
           <nav className="space-y-2">
-            {navigation.map((item) => {
+            {navigation.map((item, index) => {
               const Icon = item.icon;
               const isActive = currentPage === item.href;
               return (
@@ -78,13 +84,18 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
                     setSidebarOpen(false);
                   }}
                   className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
                     isActive 
-                      ? "bg-primary text-primary-foreground" 
-                      : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                      ? "bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white shadow-md" 
+                      : "hover:bg-accent text-muted-foreground hover:text-foreground hover:shadow-sm",
+                    "stagger-item"
                   )}
+                  style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className={cn(
+                    "w-5 h-5 transition-transform",
+                    isActive ? "" : "group-hover:scale-110"
+                  )} />
                   <span className="font-medium">{item.name}</span>
                 </button>
               );
@@ -96,17 +107,17 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div 
-          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-30 animate-fade-in"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Main Content */}
       <main className={cn(
-        "lg:ml-64 min-h-screen",
-        "pt-20 lg:pt-0" // Add padding for mobile header
+        "lg:ml-64 min-h-screen transition-all duration-300",
+        "pt-20 lg:pt-0"
       )}>
-        <div className="p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           {children}
         </div>
       </main>
