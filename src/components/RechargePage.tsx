@@ -1,19 +1,118 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Sparkles, Zap } from 'lucide-react';
+import { ArrowLeft, Sparkles, Zap, TrendingUp, Wifi, Video, Music, Gamepad2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface RechargePageProps {
   onNavigate: (page: string) => void;
 }
+
+// Mock usage history dataset
+interface UsageDay {
+  date: string;
+  gbUsed: number;
+  primaryCategory: 'Streaming' | 'Social' | 'Work' | 'Gaming';
+}
+
+const generateMockUsageHistory = (): UsageDay[] => {
+  const categories: UsageDay['primaryCategory'][] = ['Streaming', 'Social', 'Work', 'Gaming'];
+  const history: UsageDay[] = [];
+  
+  for (let i = 30; i >= 1; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    history.push({
+      date: date.toISOString().split('T')[0],
+      gbUsed: Math.random() * 3 + 0.5, // 0.5 - 3.5 GB per day
+      primaryCategory: categories[Math.floor(Math.random() * categories.length)]
+    });
+  }
+  
+  return history;
+};
+
+interface AISuggestion {
+  validity: string;
+  dataAmount: number;
+  dataMode: string;
+  voiceCalls: boolean;
+  unlimitedVoice: boolean;
+  ottPlatforms: string[];
+  reason: string;
+  confidence: number;
+}
+
+const analyzeUsageAndSuggest = (history: UsageDay[]): AISuggestion => {
+  const avgDailyUsage = history.reduce((sum, day) => sum + day.gbUsed, 0) / history.length;
+  const totalUsage = history.reduce((sum, day) => sum + day.gbUsed, 0);
+  
+  // Count category occurrences
+  const categoryCount: Record<string, number> = {};
+  history.forEach(day => {
+    categoryCount[day.primaryCategory] = (categoryCount[day.primaryCategory] || 0) + 1;
+  });
+  
+  const dominantCategory = Object.entries(categoryCount).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+  
+  // Determine validity
+  let validity = '28';
+  let reason = '';
+  
+  if (avgDailyUsage > 2.5) {
+    validity = '28';
+    reason = 'Heavy usage detected - monthly plan recommended';
+  } else if (avgDailyUsage > 1.5) {
+    validity = '14';
+    reason = 'Moderate usage - bi-weekly plan optimal';
+  } else {
+    validity = '7';
+    reason = 'Light usage - weekly plan saves money';
+  }
+  
+  // Determine data mode
+  const dataMode = avgDailyUsage > 2 || dominantCategory === 'Streaming' || dominantCategory === 'Gaming' ? '5g' : '4g';
+  
+  // Calculate suggested data amount
+  const suggestedData = Math.ceil(totalUsage * 1.2); // 20% buffer
+  
+  // Suggest OTT platforms based on dominant category
+  const ottPlatforms: string[] = [];
+  if (dominantCategory === 'Streaming') {
+    ottPlatforms.push('netflix', 'prime', 'disney');
+    reason += ' with streaming bundles';
+  } else if (dominantCategory === 'Social') {
+    ottPlatforms.push('spotify');
+    reason += ' with music streaming';
+  } else if (dominantCategory === 'Gaming') {
+    ottPlatforms.push('prime');
+    reason += ' with gaming perks';
+  }
+  
+  // Voice calls - suggest unlimited for heavy users
+  const voiceCalls = avgDailyUsage > 1.5;
+  const unlimitedVoice = avgDailyUsage > 2;
+  
+  return {
+    validity,
+    dataAmount: suggestedData,
+    dataMode,
+    voiceCalls,
+    unlimitedVoice,
+    ottPlatforms,
+    reason,
+    confidence: Math.min(95, 75 + history.length)
+  };
+};
 
 export function RechargePage({ onNavigate }: RechargePageProps) {
   const [validity, setValidity] = useState('28');
@@ -22,13 +121,22 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
   const [voiceCalls, setVoiceCalls] = useState(false);
   const [unlimitedVoice, setUnlimitedVoice] = useState(false);
   const [ottPlatforms, setOttPlatforms] = useState<string[]>([]);
+  const [usageHistory, setUsageHistory] = useState<UsageDay[]>([]);
+  const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
 
   const ottOptions = [
-    { id: 'netflix', name: 'Netflix', price: 50 },
-    { id: 'prime', name: 'Prime Video', price: 40 },
-    { id: 'disney', name: 'Disney+', price: 45 },
-    { id: 'spotify', name: 'Spotify', price: 30 }
+    { id: 'netflix', name: 'Netflix', price: 50, icon: Video },
+    { id: 'prime', name: 'Prime Video', price: 40, icon: Video },
+    { id: 'disney', name: 'Disney+', price: 45, icon: Video },
+    { id: 'spotify', name: 'Spotify', price: 30, icon: Music }
   ];
+
+  useEffect(() => {
+    const history = generateMockUsageHistory();
+    setUsageHistory(history);
+    const suggestion = analyzeUsageAndSuggest(history);
+    setAiSuggestion(suggestion);
+  }, []);
 
   // Cost calculation
   const baseCost = dataAmount[0] * 15; // ₹15 per GB
@@ -51,16 +159,65 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
     );
   };
 
-  const aiSuggestion = {
-    title: 'AI Optimization',
-    message: 'Based on your usage, we recommend 5G for better streaming experience',
-    savings: '₹50'
+  const applyAISuggestion = () => {
+    if (!aiSuggestion) return;
+    
+    setValidity(aiSuggestion.validity);
+    setDataAmount([aiSuggestion.dataAmount]);
+    setDataMode(aiSuggestion.dataMode);
+    setVoiceCalls(aiSuggestion.voiceCalls);
+    setUnlimitedVoice(aiSuggestion.unlimitedVoice);
+    setOttPlatforms(aiSuggestion.ottPlatforms);
+    
+    toast.success('AI suggested plan applied!');
+  };
+
+  const handleActivatePlan = () => {
+    // Validate data amount
+    if (dataAmount[0] <= 0) {
+      toast.error('Data amount must be greater than 0');
+      return;
+    }
+
+    toast.success(`Plan activated! ₹${totalCost} | Earned ${pivotPointsEarned} Pivot Points`);
+    
+    // Record in history
+    const transactions = JSON.parse(localStorage.getItem('pivot_transactions') || '[]');
+    transactions.unshift({
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'recharge',
+      amount: dataAmount[0],
+      validity: validity,
+      cost: totalCost,
+      date: new Date().toISOString(),
+      status: 'completed'
+    });
+    localStorage.setItem('pivot_transactions', JSON.stringify(transactions));
+  };
+
+  // Usage stats
+  const avgDailyUsage = usageHistory.length > 0 
+    ? (usageHistory.reduce((sum, day) => sum + day.gbUsed, 0) / usageHistory.length).toFixed(1)
+    : '0';
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'Streaming': return Video;
+      case 'Gaming': return Gamepad2;
+      case 'Social': return Music;
+      default: return Wifi;
+    }
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex items-center gap-4 animate-fade-in-up">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => onNavigate('dashboard')}
+          className="hover-scale"
+        >
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
@@ -73,25 +230,50 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
         {/* Configuration Section */}
         <div className="lg:col-span-2 space-y-6">
           {/* AI Suggestion Banner */}
-          <Card className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-200 dark:border-violet-800">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-violet-500 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-5 h-5 text-white" />
+          {aiSuggestion && (
+            <Card className="bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-violet-950/30 dark:via-purple-950/30 dark:to-fuchsia-950/30 border-violet-200 dark:border-violet-800 premium-card hover-lift animate-fade-in-up">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shrink-0 shadow-lg animate-pulse-glow">
+                    <Sparkles className="w-7 h-7 text-white" />
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
+                        AI Optimized Plan
+                        <Badge variant="secondary" className="bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300">
+                          {aiSuggestion.confidence}% Match
+                        </Badge>
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-3">{aiSuggestion.reason}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                        <span>Avg: {avgDailyUsage} GB/day</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Wifi className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                        <span>{aiSuggestion.dataMode.toUpperCase()} recommended</span>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      onClick={applyAISuggestion}
+                      className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-md hover-lift"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Apply AI Suggested Plan
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold mb-1">{aiSuggestion.title}</h4>
-                  <p className="text-sm text-muted-foreground mb-2">{aiSuggestion.message}</p>
-                  <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                    Save {aiSuggestion.savings}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Plan Configuration */}
-          <Card>
+          <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
             <CardHeader>
               <CardTitle>Plan Configuration</CardTitle>
               <CardDescription>Customize your recharge plan</CardDescription>
@@ -99,16 +281,16 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
             <CardContent className="space-y-6">
               {/* Validity */}
               <div className="space-y-2">
-                <Label htmlFor="validity">Plan Validity</Label>
+                <Label htmlFor="validity" className="text-base font-semibold">Plan Validity</Label>
                 <Select value={validity} onValueChange={setValidity}>
-                  <SelectTrigger id="validity">
+                  <SelectTrigger id="validity" className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="7">7 Days</SelectItem>
-                    <SelectItem value="14">14 Days</SelectItem>
-                    <SelectItem value="28">28 Days</SelectItem>
-                    <SelectItem value="84">84 Days</SelectItem>
+                    <SelectItem value="7" className="text-base">7 Days</SelectItem>
+                    <SelectItem value="14" className="text-base">14 Days</SelectItem>
+                    <SelectItem value="28" className="text-base">28 Days</SelectItem>
+                    <SelectItem value="84" className="text-base">84 Days</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -116,8 +298,8 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
               {/* Data Amount */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label>Data Amount (GB)</Label>
-                  <Badge variant="secondary" className="font-mono">
+                  <Label className="text-base font-semibold">Data Amount (GB)</Label>
+                  <Badge variant="secondary" className="font-mono text-base px-3 py-1">
                     {dataAmount[0]} GB
                   </Badge>
                 </div>
@@ -129,7 +311,7 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
                   step={1}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>1 GB</span>
                   <span>100 GB</span>
                 </div>
@@ -137,14 +319,14 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
 
               {/* Data Mode */}
               <div className="space-y-2">
-                <Label htmlFor="dataMode">Data Mode</Label>
+                <Label htmlFor="dataMode" className="text-base font-semibold">Data Mode</Label>
                 <Select value={dataMode} onValueChange={setDataMode}>
-                  <SelectTrigger id="dataMode">
+                  <SelectTrigger id="dataMode" className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="4g">4G/LTE</SelectItem>
-                    <SelectItem value="5g">
+                    <SelectItem value="4g" className="text-base">4G/LTE</SelectItem>
+                    <SelectItem value="5g" className="text-base">
                       <div className="flex items-center gap-2">
                         5G
                         <Badge variant="secondary" className="text-xs">+₹{Math.round(baseCost * 0.3)}</Badge>
@@ -158,28 +340,33 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
 
               {/* Voice Calls */}
               <div className="space-y-4">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-3">
                   <Checkbox 
                     id="voice" 
                     checked={voiceCalls}
-                    onCheckedChange={(checked) => setVoiceCalls(checked as boolean)}
+                    onCheckedChange={(checked) => {
+                      setVoiceCalls(checked as boolean);
+                      if (!checked) setUnlimitedVoice(false);
+                    }}
+                    className="h-5 w-5"
                   />
-                  <Label htmlFor="voice" className="cursor-pointer">
+                  <Label htmlFor="voice" className="cursor-pointer text-base font-semibold">
                     Add Voice Calls
                   </Label>
                 </div>
 
                 {voiceCalls && (
-                  <div className="ml-6 space-y-2">
-                    <div className="flex items-center space-x-2">
+                  <div className="ml-8 space-y-3 animate-fade-in-up">
+                    <div className="flex items-center space-x-3">
                       <Checkbox 
                         id="unlimited" 
                         checked={unlimitedVoice}
                         onCheckedChange={(checked) => setUnlimitedVoice(checked as boolean)}
+                        className="h-5 w-5"
                       />
                       <Label htmlFor="unlimited" className="cursor-pointer flex items-center gap-2">
                         Unlimited Voice Calls
-                        <Badge variant="secondary">+₹100</Badge>
+                        <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">+₹100</Badge>
                       </Label>
                     </div>
                     {!unlimitedVoice && (
@@ -193,21 +380,37 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
 
               {/* OTT Subscriptions */}
               <div className="space-y-4">
-                <Label>OTT Subscriptions</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {ottOptions.map((ott) => (
-                    <div key={ott.id} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={ott.id}
-                        checked={ottPlatforms.includes(ott.id)}
-                        onCheckedChange={() => handleOttToggle(ott.id)}
-                      />
-                      <Label htmlFor={ott.id} className="cursor-pointer flex items-center gap-2">
-                        {ott.name}
-                        <span className="text-xs text-muted-foreground">+₹{ott.price}</span>
-                      </Label>
-                    </div>
-                  ))}
+                <Label className="text-base font-semibold">OTT Subscriptions</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {ottOptions.map((ott) => {
+                    const Icon = ott.icon;
+                    return (
+                      <div 
+                        key={ott.id} 
+                        className={cn(
+                          "flex items-center space-x-3 p-3 rounded-lg border transition-all hover:shadow-md cursor-pointer",
+                          ottPlatforms.includes(ott.id) 
+                            ? "bg-violet-50 dark:bg-violet-950/20 border-violet-300 dark:border-violet-700" 
+                            : "hover:bg-accent"
+                        )}
+                        onClick={() => handleOttToggle(ott.id)}
+                      >
+                        <Checkbox 
+                          id={ott.id}
+                          checked={ottPlatforms.includes(ott.id)}
+                          onCheckedChange={() => handleOttToggle(ott.id)}
+                          className="h-5 w-5"
+                        />
+                        <Icon className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                        <div className="flex-1">
+                          <Label htmlFor={ott.id} className="cursor-pointer font-medium">
+                            {ott.name}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">+₹{ott.price}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </CardContent>
@@ -216,12 +419,12 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
 
         {/* Summary Card */}
         <div className="lg:col-span-1">
-          <Card className="sticky top-6">
+          <Card className="sticky top-6 premium-card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
             <CardHeader>
               <CardTitle>Plan Summary</CardTitle>
               <CardDescription>Your custom plan details</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               {/* Plan Details */}
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
@@ -277,21 +480,25 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
               <Separator />
 
               {/* Total */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold">Total Cost</span>
-                  <span className="text-2xl font-bold">₹{totalCost}</span>
+                  <span className="font-bold text-lg">Total Cost</span>
+                  <span className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">₹{totalCost}</span>
                 </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-violet-50 dark:bg-violet-950/20">
-                  <span className="text-sm text-muted-foreground">Earn Pivot Points</span>
-                  <span className="text-sm font-semibold text-violet-600 dark:text-violet-400">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border border-violet-100 dark:border-violet-900">
+                  <span className="text-sm font-medium text-muted-foreground">Earn Pivot Points</span>
+                  <span className="text-base font-bold text-violet-600 dark:text-violet-400">
                     +{pivotPointsEarned} PP
                   </span>
                 </div>
               </div>
 
-              <Button className="w-full" size="lg">
-                <Zap className="w-4 h-4 mr-2" />
+              <Button 
+                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-lg hover-lift" 
+                size="lg"
+                onClick={handleActivatePlan}
+              >
+                <Zap className="w-5 h-5 mr-2" />
                 Activate Plan
               </Button>
             </CardContent>
