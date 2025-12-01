@@ -9,6 +9,9 @@ interface User {
   phone: string;
   dataBalance: number;
   pivotPoints: number;
+  password?: string;
+  twoFactorEnabled?: boolean;
+  twoFactorMethod?: 'sms' | 'email';
 }
 
 interface AuthContextType {
@@ -18,6 +21,7 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   updateUser: (updates: Partial<User>) => void;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,6 +49,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phone: '+1 234 567 8900',
         dataBalance: 15.5, // GB
         pivotPoints: 1250,
+        password: password, // In production, never store plain text passwords
+        twoFactorEnabled: false,
+        twoFactorMethod: 'sms'
       };
       setUser(mockUser);
       setIsAuthenticated(true);
@@ -64,6 +71,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phone: phone,
         dataBalance: 20.0, // GB - welcome bonus
         pivotPoints: 500, // Welcome pivot points
+        password: password,
+        twoFactorEnabled: false,
+        twoFactorMethod: 'sms'
       };
       setUser(mockUser);
       setIsAuthenticated(true);
@@ -87,8 +97,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
+    if (!user) return false;
+    
+    // Verify current password
+    if (user.password !== currentPassword) {
+      return false;
+    }
+
+    // Update password
+    updateUser({ password: newPassword });
+    return true;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, isAuthenticated, updateUser }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, isAuthenticated, updateUser, changePassword }}>
       {children}
     </AuthContext.Provider>
   );
