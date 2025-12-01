@@ -8,13 +8,20 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/contexts/AuthContext';
-import { Send, Coins, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface SendDataPageProps {
   onNavigate: (page: string) => void;
+}
+
+interface ValidationErrors {
+  phone?: string;
+  network?: string;
+  amount?: string;
 }
 
 export function SendDataPage({ onNavigate }: SendDataPageProps) {
@@ -24,20 +31,89 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
   const [dataAmount, setDataAmount] = useState([1]);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [transferSuccess, setTransferSuccess] = useState(false);
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [touched, setTouched] = useState({ phone: false, network: false });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const networks = ['Airtel', 'Jio', 'Vi', 'BSNL'];
   
   // Calculate pivot points fee (10 points per GB)
   const pivotPointsFee = dataAmount[0] * 10;
-  const canTransfer = user && user.dataBalance >= dataAmount[0] && user.pivotPoints >= pivotPointsFee;
+  
+  // Validation functions
+  const validatePhone = (phone: string): string | undefined => {
+    if (!phone) return 'Phone number is required';
+    // Remove spaces and special characters
+    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    // Check if it's a valid format (10-15 digits, optionally starting with +)
+    if (!/^\+?\d{10,15}$/.test(cleaned)) {
+      return 'Invalid phone number format (10-15 digits)';
+    }
+    return undefined;
+  };
+
+  const validateNetwork = (net: string): string | undefined => {
+    if (!net) return 'Network provider is required';
+    return undefined;
+  };
+
+  const validateAmount = (amount: number): string | undefined => {
+    if (amount <= 0) return 'Amount must be greater than 0';
+    if (!user) return 'User not found';
+    if (amount > user.dataBalance) {
+      return `Insufficient data balance (Available: ${user.dataBalance.toFixed(1)} GB)`;
+    }
+    if (pivotPointsFee > user.pivotPoints) {
+      return `Insufficient Pivot Points (Required: ${pivotPointsFee} PP, Available: ${user.pivotPoints} PP)`;
+    }
+    return undefined;
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: ValidationErrors = {
+      phone: validatePhone(recipientPhone),
+      network: validateNetwork(network),
+      amount: validateAmount(dataAmount[0])
+    };
+    setErrors(newErrors);
+    return !newErrors.phone && !newErrors.network && !newErrors.amount;
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setRecipientPhone(value);
+    if (touched.phone) {
+      setErrors(prev => ({ ...prev, phone: validatePhone(value) }));
+    }
+  };
+
+  const handleNetworkChange = (value: string) => {
+    setNetwork(value);
+    if (touched.network) {
+      setErrors(prev => ({ ...prev, network: validateNetwork(value) }));
+    }
+  };
+
+  const handleAmountChange = (value: number[]) => {
+    setDataAmount(value);
+    setErrors(prev => ({ ...prev, amount: validateAmount(value[0]) }));
+  };
 
   const handleTransfer = () => {
-    if (!canTransfer) return;
+    setTouched({ phone: true, network: true });
+    if (!validateForm()) {
+      toast.error('Please fix all errors before submitting');
+      return;
+    }
     setShowConfirmation(true);
   };
 
-  const confirmTransfer = () => {
+  const confirmTransfer = async () => {
     if (!user) return;
+    
+    setIsSubmitting(true);
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     // Update user data
     updateUser({
@@ -62,19 +138,31 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
     });
     localStorage.setItem('pivot_transactions', JSON.stringify(transactions));
 
+    toast.success(`${dataAmount[0]} GB sent successfully!`);
+
     // Reset form after delay
     setTimeout(() => {
       setTransferSuccess(false);
       setRecipientPhone('');
       setNetwork('');
       setDataAmount([1]);
-    }, 3000);
+      setErrors({});
+      setTouched({ phone: false, network: false });
+      setIsSubmitting(false);
+    }, 2000);
   };
+
+  const isFormValid = !errors.phone && !errors.network && !errors.amount && recipientPhone && network;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
+      <div className="flex items-center gap-4 animate-fade-in-up">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => onNavigate('dashboard')}
+          className="hover-scale"
+        >
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
@@ -83,154 +171,204 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
         </div>
       </div>
 
-      <Card>
+      <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
         <CardHeader>
           <CardTitle>Peer-to-Peer Data Transfer</CardTitle>
           <CardDescription>Send mobile data instantly using Pivot Points</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Current Balance */}
-          <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Available Data</p>
-              <p className="text-2xl font-bold">{user?.dataBalance.toFixed(1)} GB</p>
+          <div className="grid grid-cols-2 gap-4 p-5 rounded-xl bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border border-violet-100 dark:border-violet-900">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground font-medium">Available Data</p>
+              <p className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+                {user?.dataBalance.toFixed(1)} GB
+              </p>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Pivot Points</p>
-              <p className="text-2xl font-bold">{user?.pivotPoints.toLocaleString()}</p>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground font-medium">Pivot Points</p>
+              <p className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+                {user?.pivotPoints.toLocaleString()}
+              </p>
             </div>
           </div>
 
           {/* Transfer Form */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="recipient">Recipient Phone Number</Label>
+              <Label htmlFor="recipient" className="text-base font-semibold">
+                Recipient Phone Number *
+              </Label>
               <Input
                 id="recipient"
                 type="tel"
                 placeholder="+1 234 567 8900"
                 value={recipientPhone}
-                onChange={(e) => setRecipientPhone(e.target.value)}
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                onBlur={() => setTouched(prev => ({ ...prev, phone: true }))}
+                className={cn(
+                  "h-12 text-base transition-all",
+                  errors.phone && touched.phone && "border-destructive focus-visible:ring-destructive animate-shake"
+                )}
               />
+              {errors.phone && touched.phone && (
+                <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{errors.phone}</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="network">Network Provider</Label>
-              <Select value={network} onValueChange={setNetwork}>
-                <SelectTrigger id="network">
+              <Label htmlFor="network" className="text-base font-semibold">
+                Network Provider *
+              </Label>
+              <Select value={network} onValueChange={handleNetworkChange}>
+                <SelectTrigger 
+                  id="network"
+                  className={cn(
+                    "h-12 text-base transition-all",
+                    errors.network && touched.network && "border-destructive focus-visible:ring-destructive"
+                  )}
+                  onBlur={() => setTouched(prev => ({ ...prev, network: true }))}
+                >
                   <SelectValue placeholder="Select network" />
                 </SelectTrigger>
                 <SelectContent>
                   {networks.map((net) => (
-                    <SelectItem key={net} value={net}>{net}</SelectItem>
+                    <SelectItem key={net} value={net} className="text-base">
+                      {net}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {errors.network && touched.network && (
+                <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{errors.network}</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label>Data Amount (GB)</Label>
-                <Badge variant="secondary" className="font-mono">
+                <Label className="text-base font-semibold">Data Amount (GB) *</Label>
+                <Badge variant="secondary" className="font-mono text-base px-3 py-1">
                   {dataAmount[0]} GB
                 </Badge>
               </div>
               <Slider
                 value={dataAmount}
-                onValueChange={setDataAmount}
+                onValueChange={handleAmountChange}
                 min={0.5}
-                max={10}
+                max={Math.min(10, user?.dataBalance || 10)}
                 step={0.5}
                 className="w-full"
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>0.5 GB</span>
-                <span>10 GB</span>
+                <span>{Math.min(10, user?.dataBalance || 10)} GB</span>
               </div>
+              {errors.amount && (
+                <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{errors.amount}</span>
+                </div>
+              )}
             </div>
 
             {/* Fee Calculation */}
-            <Card className="bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Transfer Fee</span>
-                  <div className="flex items-center gap-1 text-violet-600 dark:text-violet-400 font-semibold">
-                    <Coins className="w-4 h-4" />
+            <Card className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border-violet-200 dark:border-violet-800 hover-scale">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-base font-semibold">Transfer Fee</span>
+                  <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 font-bold text-lg">
+                    <Coins className="w-5 h-5" />
                     <span>{pivotPointsFee} PP</span>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Fee: 10 Pivot Points per GB • Instant transfer
-                </p>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    Fee: 10 Pivot Points per GB • Instant transfer
+                  </p>
+                  <p className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                    Remaining after transfer: {user ? (user.dataBalance - dataAmount[0]).toFixed(1) : 0} GB
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>
 
           <Button 
-            className="w-full" 
+            className="w-full h-12 text-base font-semibold hover-lift" 
             size="lg"
             onClick={handleTransfer}
-            disabled={!recipientPhone || !network || !canTransfer}
+            disabled={!isFormValid || isSubmitting}
           >
-            <Send className="w-4 h-4 mr-2" />
+            <Send className="w-5 h-5 mr-2" />
             Send {dataAmount[0]} GB Data
           </Button>
-
-          {!canTransfer && recipientPhone && network && (
-            <p className="text-sm text-destructive text-center">
-              Insufficient balance or pivot points
-            </p>
-          )}
         </CardContent>
       </Card>
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <DialogContent>
+        <DialogContent className="animate-scale-in">
           <DialogHeader>
-            <DialogTitle>Confirm Transfer</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-2xl">Confirm Transfer</DialogTitle>
+            <DialogDescription className="text-base">
               Please review the transfer details before confirming
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+          <div className="space-y-4 py-6">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Recipient</p>
-                <p className="font-semibold">{recipientPhone}</p>
+                <p className="font-semibold text-base">{recipientPhone}</p>
               </div>
-              <div>
+              <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Network</p>
-                <p className="font-semibold">{network}</p>
+                <p className="font-semibold text-base">{network}</p>
               </div>
-              <div>
+              <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Data Amount</p>
-                <p className="font-semibold">{dataAmount[0]} GB</p>
+                <p className="font-semibold text-base">{dataAmount[0]} GB</p>
               </div>
-              <div>
+              <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Transfer Fee</p>
-                <p className="font-semibold text-violet-600 dark:text-violet-400">{pivotPointsFee} PP</p>
+                <p className="font-semibold text-base text-violet-600 dark:text-violet-400">{pivotPointsFee} PP</p>
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirmation(false)}>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowConfirmation(false)}
+              disabled={isSubmitting}
+              className="hover-scale"
+            >
               Cancel
             </Button>
-            <Button onClick={confirmTransfer}>Confirm Transfer</Button>
+            <Button 
+              onClick={confirmTransfer}
+              disabled={isSubmitting}
+              className="hover-scale"
+            >
+              {isSubmitting ? 'Processing...' : 'Confirm Transfer'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Success Dialog */}
       <Dialog open={transferSuccess} onOpenChange={setTransferSuccess}>
-        <DialogContent>
-          <div className="text-center py-6">
-            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+        <DialogContent className="animate-scale-in">
+          <div className="text-center py-8">
+            <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mx-auto mb-6 animate-check">
+              <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />
             </div>
-            <DialogTitle className="text-2xl mb-2">Transfer Successful!</DialogTitle>
-            <DialogDescription className="text-base">
+            <DialogTitle className="text-3xl mb-3">Transfer Successful!</DialogTitle>
+            <DialogDescription className="text-lg">
               {dataAmount[0]} GB has been sent to {recipientPhone}
             </DialogDescription>
           </div>
