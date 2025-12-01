@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/contexts/AuthContext';
-import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle, QrCode, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -30,10 +30,17 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
   const [network, setNetwork] = useState('');
   const [dataAmount, setDataAmount] = useState([1]);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showPinDialog, setShowPinDialog] = useState(false);
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
   const [transferSuccess, setTransferSuccess] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState({ phone: false, network: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Mock PIN stored in state (in production, this would be securely stored)
+  const MOCK_PIN = '1234';
 
   const networks = ['Airtel', 'Jio', 'Vi', 'BSNL'];
   
@@ -43,9 +50,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
   // Validation functions
   const validatePhone = (phone: string): string | undefined => {
     if (!phone) return 'Phone number is required';
-    // Remove spaces and special characters
     const cleaned = phone.replace(/[\s\-\(\)]/g, '');
-    // Check if it's a valid format (10-15 digits, optionally starting with +)
     if (!/^\+?\d{10,15}$/.test(cleaned)) {
       return 'Invalid phone number format (10-15 digits)';
     }
@@ -107,9 +112,30 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
     setShowConfirmation(true);
   };
 
+  const handleConfirmClick = () => {
+    setShowConfirmation(false);
+    setShowPinDialog(true);
+    setPin('');
+    setPinError('');
+  };
+
+  const handlePinChange = (value: string) => {
+    // Only allow digits and max 4 characters
+    const cleaned = value.replace(/\D/g, '').slice(0, 4);
+    setPin(cleaned);
+    setPinError('');
+  };
+
   const confirmTransfer = async () => {
     if (!user) return;
     
+    // Validate PIN
+    if (pin !== MOCK_PIN) {
+      setPinError('Invalid PIN. Please try again.');
+      setPin('');
+      return;
+    }
+
     setIsSubmitting(true);
     
     // Simulate API call delay
@@ -121,14 +147,14 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
       pivotPoints: user.pivotPoints - pivotPointsFee
     });
 
-    setShowConfirmation(false);
+    setShowPinDialog(false);
     setTransferSuccess(true);
 
     // Record transaction in localStorage
     const transactions = JSON.parse(localStorage.getItem('pivot_transactions') || '[]');
     transactions.unshift({
       id: Math.random().toString(36).substr(2, 9),
-      type: 'transfer',
+      type: 'Data Transfer - Sent',
       amount: dataAmount[0],
       recipient: recipientPhone,
       network: network,
@@ -138,7 +164,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
     });
     localStorage.setItem('pivot_transactions', JSON.stringify(transactions));
 
-    toast.success(`${dataAmount[0]} GB sent successfully!`);
+    toast.success(`Data transfer successful! ${dataAmount[0]} GB sent to ${recipientPhone}`);
 
     // Reset form after delay
     setTimeout(() => {
@@ -149,7 +175,42 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
       setErrors({});
       setTouched({ phone: false, network: false });
       setIsSubmitting(false);
+      setPin('');
     }, 2000);
+  };
+
+  const handleScanQr = () => {
+    setShowQrScanner(true);
+  };
+
+  const handleQrScanComplete = (scannedData: string) => {
+    // Mock QR code parsing - in production, this would parse actual QR data
+    // Format could be: phone:+1234567890,udi:@user-phone,network:Jio
+    try {
+      const parts = scannedData.split(',');
+      const phoneMatch = parts.find(p => p.startsWith('phone:'));
+      const networkMatch = parts.find(p => p.startsWith('network:'));
+      
+      if (phoneMatch) {
+        const phoneValue = phoneMatch.split(':')[1];
+        setRecipientPhone(phoneValue);
+      }
+      if (networkMatch) {
+        const networkValue = networkMatch.split(':')[1];
+        setNetwork(networkValue);
+      }
+      
+      toast.success('QR code scanned successfully!');
+      setShowQrScanner(false);
+    } catch (error) {
+      toast.error('Failed to parse QR code');
+    }
+  };
+
+  const mockScanQr = () => {
+    // Simulate successful QR scan with mock data
+    const mockQrData = 'phone:+1234567890,udi:@john-mobile,network:Jio';
+    handleQrScanComplete(mockQrData);
   };
 
   const isFormValid = !errors.phone && !errors.network && !errors.amount && recipientPhone && network;
@@ -197,20 +258,32 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
           <div className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="recipient" className="text-base font-semibold">
-                Recipient Phone Number *
+                Recipient Phone Number / UDI *
               </Label>
-              <Input
-                id="recipient"
-                type="tel"
-                placeholder="+1 234 567 8900"
-                value={recipientPhone}
-                onChange={(e) => handlePhoneChange(e.target.value)}
-                onBlur={() => setTouched(prev => ({ ...prev, phone: true }))}
-                className={cn(
-                  "h-12 text-base transition-all",
-                  errors.phone && touched.phone && "border-destructive focus-visible:ring-destructive animate-shake"
-                )}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="recipient"
+                  type="tel"
+                  placeholder="+1 234 567 8900 or @user-udi"
+                  value={recipientPhone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  onBlur={() => setTouched(prev => ({ ...prev, phone: true }))}
+                  className={cn(
+                    "h-12 text-base transition-all flex-1",
+                    errors.phone && touched.phone && "border-destructive focus-visible:ring-destructive animate-shake"
+                  )}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12 shrink-0 hover-scale"
+                  onClick={handleScanQr}
+                  title="Scan QR Code"
+                >
+                  <QrCode className="w-5 h-5" />
+                </Button>
+              </div>
               {errors.phone && touched.phone && (
                 <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
                   <AlertCircle className="w-4 h-4" />
@@ -344,6 +417,65 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
             <Button 
               variant="outline" 
               onClick={() => setShowConfirmation(false)}
+              className="hover-scale"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmClick}
+              className="hover-scale"
+            >
+              Continue to PIN
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* PIN Confirmation Dialog */}
+      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
+        <DialogContent className="animate-scale-in max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Confirm Transfer</DialogTitle>
+            <DialogDescription className="text-base">
+              Enter your 4-digit PIN to confirm this data transfer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-6">
+            <div className="space-y-3">
+              <Label htmlFor="pin" className="text-base font-semibold">4-Digit PIN *</Label>
+              <Input
+                id="pin"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="••••"
+                value={pin}
+                onChange={(e) => handlePinChange(e.target.value)}
+                className={cn(
+                  "h-14 text-center text-2xl tracking-widest font-bold",
+                  pinError && "border-destructive focus-visible:ring-destructive animate-shake"
+                )}
+                autoFocus
+              />
+              {pinError && (
+                <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{pinError}</span>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground text-center">
+                Demo PIN: 1234
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowPinDialog(false);
+                setPin('');
+                setPinError('');
+              }}
               disabled={isSubmitting}
               className="hover-scale"
             >
@@ -351,10 +483,53 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
             </Button>
             <Button 
               onClick={confirmTransfer}
-              disabled={isSubmitting}
+              disabled={isSubmitting || pin.length !== 4}
               className="hover-scale"
             >
               {isSubmitting ? 'Processing...' : 'Confirm Transfer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Scanner Dialog */}
+      <Dialog open={showQrScanner} onOpenChange={setShowQrScanner}>
+        <DialogContent className="animate-scale-in max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Scan QR Code</DialogTitle>
+            <DialogDescription className="text-base">
+              Scan the receiver's QR code to auto-fill their details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6">
+            {/* Mock QR Scanner UI */}
+            <div className="aspect-square bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 rounded-2xl border-2 border-dashed border-violet-300 dark:border-violet-700 flex flex-col items-center justify-center gap-6 p-8">
+              <div className="w-32 h-32 border-4 border-violet-500 rounded-2xl animate-pulse flex items-center justify-center">
+                <QrCode className="w-16 h-16 text-violet-600 dark:text-violet-400" />
+              </div>
+              <div className="text-center space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Position QR code within the frame
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  (Demo mode - Click button below to simulate scan)
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowQrScanner(false)}
+              className="hover-scale"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={mockScanQr}
+              className="hover-scale bg-gradient-to-r from-violet-500 to-fuchsia-600"
+            >
+              Simulate Scan
             </Button>
           </DialogFooter>
         </DialogContent>
