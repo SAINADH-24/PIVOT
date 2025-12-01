@@ -13,7 +13,9 @@ import {
   Plus, 
   Sparkles,
   TrendingUp,
-  ArrowRight
+  ArrowRight,
+  History,
+  Settings
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -69,11 +71,25 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       onClick: () => onNavigate('send-data')
     },
     {
-      title: 'Build Recharge',
-      description: 'Create your perfect custom plan',
+      title: 'Build Custom Plan',
+      description: 'Create your perfect recharge plan',
       icon: Plus,
       color: 'from-violet-500 to-fuchsia-600',
       onClick: () => onNavigate('recharge')
+    },
+    {
+      title: 'View History',
+      description: 'Check recent activity & transactions',
+      icon: History,
+      color: 'from-emerald-500 to-teal-500',
+      onClick: () => onNavigate('history')
+    },
+    {
+      title: 'UDI / Devices',
+      description: 'Manage connected devices',
+      icon: Settings,
+      color: 'from-orange-500 to-pink-500',
+      onClick: () => onNavigate('devices')
     }
   ];
 
@@ -141,26 +157,25 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       {/* Quick Actions */}
       <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
         <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickActions.map((action, index) => (
             <Card 
               key={index} 
               className="premium-card hover-lift cursor-pointer group transition-all duration-300" 
               onClick={action.onClick}
             >
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
+              <CardContent className="p-5">
+                <div className="flex flex-col items-center text-center gap-3">
                   <div className={cn(
                     "w-16 h-16 rounded-2xl bg-gradient-to-br shadow-lg flex items-center justify-center transition-transform group-hover:scale-110",
                     action.color
                   )}>
                     <action.icon className="w-8 h-8 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-xl mb-1">{action.title}</h3>
-                    <p className="text-sm text-muted-foreground">{action.description}</p>
+                  <div>
+                    <h3 className="font-bold text-base mb-1">{action.title}</h3>
+                    <p className="text-xs text-muted-foreground">{action.description}</p>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
                 </div>
               </CardContent>
             </Card>
