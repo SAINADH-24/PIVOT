@@ -4,10 +4,13 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Smartphone, Laptop, Tablet, Wifi, WifiOff, Plus } from 'lucide-react';
+import { ArrowLeft, Smartphone, Laptop, Tablet, Wifi, WifiOff, Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface DevicesPageProps {
   onNavigate: (page: string) => void;
@@ -52,6 +55,7 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
 
   const [showAddDevice, setShowAddDevice] = useState(false);
   const [newDeviceName, setNewDeviceName] = useState('');
+  const [newDeviceType, setNewDeviceType] = useState<'phone' | 'laptop' | 'tablet'>('phone');
 
   const getDeviceIcon = (type: string) => {
     switch (type) {
@@ -67,26 +71,44 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
   };
 
   const handleAddDevice = () => {
-    if (newDeviceName) {
-      const newDevice: Device = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: newDeviceName,
-        type: 'phone',
-        status: 'active',
-        dataUsed: 0,
-        lastConnected: 'Just now'
-      };
-      setDevices([...devices, newDevice]);
-      setNewDeviceName('');
-      setShowAddDevice(false);
+    if (!newDeviceName.trim()) {
+      toast.error('Please enter a device name');
+      return;
     }
+
+    const newDevice: Device = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: newDeviceName,
+      type: newDeviceType,
+      status: 'active',
+      dataUsed: 0,
+      lastConnected: 'Just now'
+    };
+    setDevices([...devices, newDevice]);
+    setNewDeviceName('');
+    setNewDeviceType('phone');
+    setShowAddDevice(false);
+    toast.success(`${newDeviceName} added successfully!`);
   };
+
+  const handleRemoveDevice = (id: string, name: string) => {
+    setDevices(devices.filter(d => d.id !== id));
+    toast.success(`${name} removed`);
+  };
+
+  const totalDataUsed = devices.reduce((acc, device) => acc + device.dataUsed, 0);
+  const activeDevices = devices.filter(d => d.status === 'active').length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => onNavigate('dashboard')}
+            className="hover-scale"
+          >
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
@@ -96,89 +118,215 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
         </div>
         <Dialog open={showAddDevice} onOpenChange={setShowAddDevice}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-md hover-lift">
               <Plus className="w-4 h-4 mr-2" />
               Add Device
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="animate-scale-in">
             <DialogHeader>
-              <DialogTitle>Add New Device</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-2xl">Add New Device</DialogTitle>
+              <DialogDescription className="text-base">
                 Register a new device to your P!VOT account
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-5 py-4">
               <div className="space-y-2">
-                <Label htmlFor="device-name">Device Name</Label>
+                <Label htmlFor="device-name" className="text-base font-semibold">Device Name *</Label>
                 <Input
                   id="device-name"
                   placeholder="e.g., iPhone 15 Pro"
                   value={newDeviceName}
                   onChange={(e) => setNewDeviceName(e.target.value)}
+                  className="h-12 text-base"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="device-type" className="text-base font-semibold">Device Type *</Label>
+                <Select value={newDeviceType} onValueChange={(value: any) => setNewDeviceType(value)}>
+                  <SelectTrigger id="device-type" className="h-12 text-base">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="phone" className="text-base">Phone</SelectItem>
+                    <SelectItem value="laptop" className="text-base">Laptop</SelectItem>
+                    <SelectItem value="tablet" className="text-base">Tablet</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddDevice(false)}>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setShowAddDevice(false)} className="hover-scale">
                 Cancel
               </Button>
-              <Button onClick={handleAddDevice}>Add Device</Button>
+              <Button onClick={handleAddDevice} className="hover-scale">Add Device</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {devices.map((device) => {
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+        <Card className="premium-card hover-lift bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground font-medium mb-1">Total Devices</p>
+                <p className="text-3xl font-bold">{devices.length}</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg flex items-center justify-center hover-scale">
+                <Smartphone className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="premium-card hover-lift bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground font-medium mb-1">Active Devices</p>
+                <p className="text-3xl font-bold">{activeDevices}</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 shadow-lg flex items-center justify-center hover-scale">
+                <Wifi className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="premium-card hover-lift bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground font-medium mb-1">Total Data Used</p>
+                <p className="text-3xl font-bold">{totalDataUsed.toFixed(1)} GB</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg flex items-center justify-center hover-scale">
+                <Tablet className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Devices Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+        {devices.map((device, index) => {
           const Icon = getDeviceIcon(device.type);
           return (
-            <Card key={device.id}>
+            <Card 
+              key={device.id} 
+              className={cn(
+                "premium-card hover-lift stagger-item group",
+                device.status === 'active' 
+                  ? "border-green-200 dark:border-green-900" 
+                  : ""
+              )}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div className={`w-12 h-12 rounded-xl ${device.status === 'active' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-gray-100 dark:bg-gray-800'} flex items-center justify-center`}>
-                    <Icon className={`w-6 h-6 ${device.status === 'active' ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`} />
+                  <div className={cn(
+                    "w-14 h-14 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110",
+                    device.status === 'active' 
+                      ? 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30' 
+                      : 'bg-gray-100 dark:bg-gray-800'
+                  )}>
+                    <Icon className={cn(
+                      "w-7 h-7",
+                      device.status === 'active' 
+                        ? 'text-green-600 dark:text-green-400' 
+                        : 'text-gray-400'
+                    )} />
                   </div>
-                  <Badge variant={device.status === 'active' ? 'default' : 'secondary'} className={device.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : ''}>
-                    {device.status === 'active' ? (
-                      <><Wifi className="w-3 h-3 mr-1" /> Active</>
-                    ) : (
-                      <><WifiOff className="w-3 h-3 mr-1" /> Inactive</>
-                    )}
-                  </Badge>
+                  <div className="flex gap-2">
+                    <Badge 
+                      variant={device.status === 'active' ? 'default' : 'secondary'} 
+                      className={cn(
+                        "animate-scale-in",
+                        device.status === 'active' 
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+                          : ''
+                      )}
+                    >
+                      {device.status === 'active' ? (
+                        <><Wifi className="w-3 h-3 mr-1" /> Active</>
+                      ) : (
+                        <><WifiOff className="w-3 h-3 mr-1" /> Inactive</>
+                      )}
+                    </Badge>
+                  </div>
                 </div>
-                <CardTitle className="mt-4">{device.name}</CardTitle>
+                <CardTitle className="mt-4 text-xl">{device.name}</CardTitle>
                 <CardDescription>Last connected: {device.lastConnected}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Data Used</span>
-                    <span className="font-semibold">{device.dataUsed} GB</span>
+                    <span className="text-muted-foreground font-medium">Data Used</span>
+                    <span className="font-bold">{device.dataUsed} GB</span>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
                     <div 
-                      className={`h-2 rounded-full ${device.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}
+                      className={cn(
+                        "h-2.5 rounded-full transition-all duration-500",
+                        device.status === 'active' 
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+                          : 'bg-gray-400'
+                      )}
                       style={{ width: `${Math.min((device.dataUsed / 10) * 100, 100)}%` }}
                     />
                   </div>
                 </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                  onClick={() => handleRemoveDevice(device.id, device.name)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Remove
+                </Button>
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      <Card>
+      {/* Tips Card */}
+      <Card className="premium-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
         <CardHeader>
-          <CardTitle>Device Management Tips</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
+              <Smartphone className="w-5 h-5 text-white" />
+            </div>
+            Device Management Tips
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Share your data balance seamlessly across all registered devices</li>
-            <li>• Monitor real-time data consumption per device</li>
-            <li>• Set device-specific data limits and alerts</li>
-            <li>• Instantly transfer data between devices</li>
+          <ul className="space-y-3">
+            <li className="flex items-start gap-3 text-sm">
+              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-violet-600 dark:text-violet-400 font-bold text-xs">1</span>
+              </div>
+              <span className="text-muted-foreground">Share your data balance seamlessly across all registered devices</span>
+            </li>
+            <li className="flex items-start gap-3 text-sm">
+              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-violet-600 dark:text-violet-400 font-bold text-xs">2</span>
+              </div>
+              <span className="text-muted-foreground">Monitor real-time data consumption per device</span>
+            </li>
+            <li className="flex items-start gap-3 text-sm">
+              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-violet-600 dark:text-violet-400 font-bold text-xs">3</span>
+              </div>
+              <span className="text-muted-foreground">Set device-specific data limits and alerts</span>
+            </li>
+            <li className="flex items-start gap-3 text-sm">
+              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-violet-600 dark:text-violet-400 font-bold text-xs">4</span>
+              </div>
+              <span className="text-muted-foreground">Instantly transfer data between devices</span>
+            </li>
           </ul>
         </CardContent>
       </Card>
