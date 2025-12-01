@@ -6,19 +6,33 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, User, Mail, Phone, LogOut, Bell, Shield, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, LogOut, Bell, Shield, Moon, Sun, AlertCircle, Lock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ProfilePageProps {
   onNavigate: (page: string) => void;
 }
 
 export function ProfilePage({ onNavigate }: ProfilePageProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser, changePassword } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  
+  // Change Password State
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordErrors, setPasswordErrors] = useState<{ current?: string; new?: string; confirm?: string }>({});
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // 2FA State
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.twoFactorEnabled || false);
+  const [twoFactorMethod, setTwoFactorMethod] = useState<'sms' | 'email'>(user?.twoFactorMethod || 'sms');
 
   const handleLogout = () => {
     logout();
@@ -29,10 +43,82 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
     document.documentElement.classList.toggle('dark');
   };
 
+  const validatePasswordForm = (): boolean => {
+    const errors: { current?: string; new?: string; confirm?: string } = {};
+    
+    if (!currentPassword) {
+      errors.current = 'Current password is required';
+    }
+    
+    if (!newPassword) {
+      errors.new = 'New password is required';
+    } else if (newPassword.length < 6) {
+      errors.new = 'Password must be at least 6 characters';
+    }
+    
+    if (!confirmPassword) {
+      errors.confirm = 'Please confirm your new password';
+    } else if (newPassword !== confirmPassword) {
+      errors.confirm = 'Passwords do not match';
+    }
+    
+    setPasswordErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleChangePassword = async () => {
+    if (!validatePasswordForm()) {
+      toast.error('Please fix all errors before submitting');
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    const success = await changePassword(currentPassword, newPassword);
+
+    if (success) {
+      toast.success('Password updated successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordErrors({});
+    } else {
+      setPasswordErrors({ current: 'Current password is incorrect' });
+      toast.error('Current password is incorrect');
+    }
+
+    setIsChangingPassword(false);
+  };
+
+  const handleToggle2FA = (enabled: boolean) => {
+    setTwoFactorEnabled(enabled);
+    updateUser({ twoFactorEnabled: enabled, twoFactorMethod });
+    
+    if (enabled) {
+      toast.success(`Two-Factor Authentication enabled via ${twoFactorMethod.toUpperCase()}`);
+    } else {
+      toast.success('Two-Factor Authentication disabled');
+    }
+  };
+
+  const handle2FAMethodChange = (method: 'sms' | 'email') => {
+    setTwoFactorMethod(method);
+    updateUser({ twoFactorMethod: method, twoFactorEnabled });
+    toast.success(`2FA method changed to ${method.toUpperCase()}`);
+  };
+
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
+      <div className="flex items-center gap-4 animate-fade-in-up">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => onNavigate('dashboard')}
+          className="hover-scale"
+        >
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
@@ -42,7 +128,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
       </div>
 
       {/* Profile Header */}
-      <Card>
+      <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
         <CardContent className="p-6">
           <div className="flex items-center gap-6">
             <Avatar className="w-20 h-20">
@@ -54,13 +140,13 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
               <h2 className="text-2xl font-bold mb-1">{user?.name}</h2>
               <p className="text-muted-foreground">{user?.email}</p>
             </div>
-            <Button variant="outline">Edit Profile</Button>
+            <Button variant="outline" className="hover-scale">Edit Profile</Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Account Information */}
-      <Card>
+      <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
         <CardHeader>
           <CardTitle>Account Information</CardTitle>
           <CardDescription>Your personal details</CardDescription>
@@ -71,34 +157,34 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
               <Label htmlFor="name">Full Name</Label>
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-muted-foreground" />
-                <Input id="name" defaultValue={user?.name} />
+                <Input id="name" defaultValue={user?.name} className="h-12" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-muted-foreground" />
-                <Input id="email" type="email" defaultValue={user?.email} />
+                <Input id="email" type="email" defaultValue={user?.email} className="h-12" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-muted-foreground" />
-                <Input id="phone" type="tel" defaultValue={user?.phone} />
+                <Input id="phone" type="tel" defaultValue={user?.phone} className="h-12" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="userId">User ID</Label>
-              <Input id="userId" defaultValue={user?.id} disabled />
+              <Input id="userId" defaultValue={user?.id} disabled className="h-12" />
             </div>
           </div>
-          <Button>Save Changes</Button>
+          <Button className="hover-scale">Save Changes</Button>
         </CardContent>
       </Card>
 
       {/* Preferences */}
-      <Card>
+      <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
         <CardHeader>
           <CardTitle>Preferences</CardTitle>
           <CardDescription>Customize your experience</CardDescription>
@@ -134,30 +220,169 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
         </CardContent>
       </Card>
 
-      {/* Security */}
-      <Card>
+      {/* Security - Change Password */}
+      <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
         <CardHeader>
-          <CardTitle>Security</CardTitle>
-          <CardDescription>Manage your account security</CardDescription>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
+              <Lock className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle>Change Password</CardTitle>
+              <CardDescription>Update your account password</CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Button variant="outline" className="w-full justify-start">
-            <Shield className="w-4 h-4 mr-2" />
-            Change Password
-          </Button>
-          <Button variant="outline" className="w-full justify-start">
-            <Shield className="w-4 h-4 mr-2" />
-            Two-Factor Authentication
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="current-password" className="text-base font-semibold">Current Password *</Label>
+            <Input
+              id="current-password"
+              type="password"
+              placeholder="Enter current password"
+              value={currentPassword}
+              onChange={(e) => {
+                setCurrentPassword(e.target.value);
+                setPasswordErrors(prev => ({ ...prev, current: undefined }));
+              }}
+              className={cn(
+                "h-12 text-base",
+                passwordErrors.current && "border-destructive focus-visible:ring-destructive animate-shake"
+              )}
+            />
+            {passwordErrors.current && (
+              <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
+                <AlertCircle className="w-4 h-4" />
+                <span>{passwordErrors.current}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-password" className="text-base font-semibold">New Password *</Label>
+            <Input
+              id="new-password"
+              type="password"
+              placeholder="Enter new password"
+              value={newPassword}
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                setPasswordErrors(prev => ({ ...prev, new: undefined }));
+              }}
+              className={cn(
+                "h-12 text-base",
+                passwordErrors.new && "border-destructive focus-visible:ring-destructive animate-shake"
+              )}
+            />
+            {passwordErrors.new && (
+              <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
+                <AlertCircle className="w-4 h-4" />
+                <span>{passwordErrors.new}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password" className="text-base font-semibold">Confirm New Password *</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                setPasswordErrors(prev => ({ ...prev, confirm: undefined }));
+              }}
+              className={cn(
+                "h-12 text-base",
+                passwordErrors.confirm && "border-destructive focus-visible:ring-destructive animate-shake"
+              )}
+            />
+            {passwordErrors.confirm && (
+              <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
+                <AlertCircle className="w-4 h-4" />
+                <span>{passwordErrors.confirm}</span>
+              </div>
+            )}
+          </div>
+
+          <Button 
+            onClick={handleChangePassword}
+            disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+            className="w-full hover-lift"
+          >
+            {isChangingPassword ? 'Updating...' : 'Change Password'}
           </Button>
         </CardContent>
       </Card>
 
+      {/* Security - Two-Factor Authentication */}
+      <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle>Two-Factor Authentication (2FA)</CardTitle>
+              <CardDescription>Add an extra layer of security to your account</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border border-violet-100 dark:border-violet-900">
+            <div>
+              <p className="font-semibold text-base mb-1">Enable Two-Factor Authentication</p>
+              <p className="text-sm text-muted-foreground">
+                {twoFactorEnabled ? 'Your account is protected with 2FA' : 'Protect your account with an extra security layer'}
+              </p>
+            </div>
+            <Switch 
+              checked={twoFactorEnabled} 
+              onCheckedChange={handleToggle2FA}
+              className="data-[state=checked]:bg-violet-600"
+            />
+          </div>
+
+          {twoFactorEnabled && (
+            <div className="space-y-4 animate-fade-in-up">
+              <Separator />
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Choose 2FA Method</Label>
+                <RadioGroup value={twoFactorMethod} onValueChange={(value: 'sms' | 'email') => handle2FAMethodChange(value)}>
+                  <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors cursor-pointer">
+                    <RadioGroupItem value="sms" id="sms" />
+                    <Label htmlFor="sms" className="flex-1 cursor-pointer">
+                      <div className="font-medium">SMS / Text Message</div>
+                      <p className="text-sm text-muted-foreground">Receive verification codes via SMS to {user?.phone}</p>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors cursor-pointer">
+                    <RadioGroupItem value="email" id="email" />
+                    <Label htmlFor="email" className="flex-1 cursor-pointer">
+                      <div className="font-medium">Email</div>
+                      <p className="text-sm text-muted-foreground">Receive verification codes via email to {user?.email}</p>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
+                <p className="text-sm text-blue-900 dark:text-blue-300">
+                  <strong>Note:</strong> When 2FA is enabled, you'll need to enter a verification code sent to your {twoFactorMethod === 'sms' ? 'phone' : 'email'} each time you log in or perform sensitive operations like data transfers.
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Logout */}
-      <Card>
+      <Card className="premium-card animate-fade-in-up" style={{ animationDelay: '0.35s' }}>
         <CardContent className="p-6">
           <Button 
             variant="destructive" 
-            className="w-full" 
+            className="w-full hover-lift" 
             onClick={handleLogout}
           >
             <LogOut className="w-4 h-4 mr-2" />
