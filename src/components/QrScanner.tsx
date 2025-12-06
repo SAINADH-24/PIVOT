@@ -31,6 +31,61 @@ interface CameraDevice {
   label: string;
 }
 
+// Feature detection utilities
+const checkCameraSupport = (): { supported: boolean; reason?: string } => {
+  console.log('🔍 [QR Scanner] Checking camera support...');
+  
+  // Check if running in secure context (HTTPS or localhost)
+  if (!window.isSecureContext) {
+    console.error('❌ [QR Scanner] Not a secure context (HTTPS required)');
+    return { 
+      supported: false, 
+      reason: 'Camera access requires HTTPS. This page must be served over a secure connection.' 
+    };
+  }
+  
+  // Check if MediaDevices API is available
+  if (!navigator.mediaDevices) {
+    console.error('❌ [QR Scanner] MediaDevices API not available');
+    return { 
+      supported: false, 
+      reason: 'Your browser does not support camera access. Please use a modern browser like Chrome, Firefox, or Safari.' 
+    };
+  }
+  
+  // Check if getUserMedia is available
+  if (!navigator.mediaDevices.getUserMedia) {
+    console.error('❌ [QR Scanner] getUserMedia not available');
+    return { 
+      supported: false, 
+      reason: 'Camera API not available in your browser. Please update your browser or try a different one.' 
+    };
+  }
+  
+  console.log('✅ [QR Scanner] Camera support verified');
+  return { supported: true };
+};
+
+// Check permission state if API is available
+const checkCameraPermission = async (): Promise<'granted' | 'denied' | 'prompt' | 'unsupported'> => {
+  console.log('🔍 [QR Scanner] Checking camera permission state...');
+  
+  try {
+    // Check if Permissions API is available
+    if (!navigator.permissions || !navigator.permissions.query) {
+      console.warn('⚠️ [QR Scanner] Permissions API not available');
+      return 'unsupported';
+    }
+    
+    const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+    console.log(`📋 [QR Scanner] Permission state: ${result.state}`);
+    return result.state as 'granted' | 'denied' | 'prompt';
+  } catch (err) {
+    console.warn('⚠️ [QR Scanner] Could not query permission state:', err);
+    return 'unsupported';
+  }
+};
+
 export function QrScanner({ 
   open, 
   onOpenChange, 
@@ -45,34 +100,71 @@ export function QrScanner({
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchReady, setTorchReady] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [cameraSupported, setCameraSupported] = useState(true);
+  const [supportError, setSupportError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [scanSuccess, setScanSuccess] = useState(false);
   const [scannedData, setScannedData] = useState<string>('');
   const [isClosing, setIsClosing] = useState(false);
+  const [initializingCamera, setInitializingCamera] = useState(false);
   
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoTrackRef = useRef<MediaStreamTrack | null>(null);
   const torchToggleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const closeDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const retryCountRef = useRef(0);
 
-  // Initialize cameras list
+  // Feature detection on mount
   useEffect(() => {
-    if (open) {
+    console.log('🚀 [QR Scanner] Component mounted');
+    const supportCheck = checkCameraSupport();
+    
+    if (!supportCheck.supported) {
+      setCameraSupported(false);
+      setSupportError(supportCheck.reason || 'Camera not supported');
+      console.error('❌ [QR Scanner] Camera not supported:', supportCheck.reason);
+    } else {
+      setCameraSupported(true);
+      console.log('✅ [QR Scanner] Camera is supported');
+    }
+  }, []);
+
+  // Initialize cameras list with better error handling
+  useEffect(() => {
+    if (open && cameraSupported) {
+      console.log('📸 [QR Scanner] Dialog opened, initializing cameras...');
       getCameras();
     }
-  }, [open]);
+  }, [open, cameraSupported]);
 
   const getCameras = async () => {
+    console.log('📋 [QR Scanner] Fetching available cameras...');
+    
     try {
+      // Check permission state first
+      const permissionState = await checkCameraPermission();
+      console.log(`🔐 [QR Scanner] Permission state: ${permissionState}`);
+      
+      if (permissionState === 'denied') {
+        console.error('❌ [QR Scanner] Camera permission previously denied');
+        setPermissionDenied(true);
+        setError('Camera access was previously denied. Please enable camera permissions in your browser settings.');
+        return;
+      }
+      
       const devices = await Html5Qrcode.getCameras();
+      console.log(`📷 [QR Scanner] Found ${devices?.length || 0} camera(s)`);
+      
       if (devices && devices.length > 0) {
-        const cameraDevices: CameraDevice[] = devices.map(device => ({
+        const cameraDevices: CameraDevice[] = devices.map((device, index) => ({
           id: device.id,
-          label: device.label || `Camera ${device.id}`
+          label: device.label || `Camera ${index + 1}`
         }));
         setCameras(cameraDevices);
+        
+        console.log('📋 [QR Scanner] Available cameras:', cameraDevices.map(c => c.label).join(', '));
         
         // Try to find rear/environment camera
         const rearCameraIndex = cameraDevices.findIndex(cam => 
@@ -82,35 +174,71 @@ export function QrScanner({
         );
         
         if (rearCameraIndex !== -1) {
+          console.log(`🎯 [QR Scanner] Found rear camera: ${cameraDevices[rearCameraIndex].label}`);
           setCurrentCameraIndex(rearCameraIndex);
+        } else {
+          console.log(`📱 [QR Scanner] Using first available camera: ${cameraDevices[0].label}`);
         }
+      } else {
+        console.error('❌ [QR Scanner] No cameras found');
+        setError('No camera devices found. Please ensure your device has a camera and try uploading an image instead.');
       }
-    } catch (err) {
-      console.error('Error getting cameras:', err);
-      setError('Unable to access camera devices');
+    } catch (err: any) {
+      console.error('❌ [QR Scanner] Error getting cameras:', err);
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message,
+        stack: err.stack
+      });
+      
+      if (err.name === 'NotAllowedError') {
+        setPermissionDenied(true);
+        setError('Camera permission denied. Please allow camera access in your browser.');
+      } else if (err.name === 'NotFoundError') {
+        setError('No camera found. Please use the upload option instead.');
+      } else {
+        setError(`Unable to access cameras: ${err.message || 'Unknown error'}`);
+      }
     }
   };
 
-  // Start camera scanning
+  // Start camera scanning with comprehensive error handling
   const startScanning = async () => {
+    console.log('🎬 [QR Scanner] Starting camera scan...');
+    console.log(`Retry attempt: ${retryCountRef.current}`);
+    
     try {
       setError(null);
       setPermissionDenied(false);
       setTorchReady(false);
+      setInitializingCamera(true);
+      
+      // Verify camera support again
+      const supportCheck = checkCameraSupport();
+      if (!supportCheck.supported) {
+        throw new Error(supportCheck.reason || 'Camera not supported');
+      }
       
       // Initialize Html5Qrcode if not already done
       if (!html5QrCodeRef.current) {
+        console.log('🔧 [QR Scanner] Initializing Html5Qrcode instance...');
         html5QrCodeRef.current = new Html5Qrcode("qr-reader");
       }
 
       const scanner = html5QrCodeRef.current;
       
       // Check if already scanning
-      if (scanner.getState() === Html5QrcodeScannerState.SCANNING) {
+      const currentState = scanner.getState();
+      console.log(`📊 [QR Scanner] Current scanner state: ${currentState}`);
+      
+      if (currentState === Html5QrcodeScannerState.SCANNING) {
+        console.warn('⚠️ [QR Scanner] Scanner already running');
+        setInitializingCamera(false);
         return;
       }
 
       const cameraId = cameras[currentCameraIndex]?.id || { facingMode: "environment" };
+      console.log('🎥 [QR Scanner] Using camera:', cameras[currentCameraIndex]?.label || 'environment facing');
 
       const config = {
         fps: 10,
@@ -121,19 +249,25 @@ export function QrScanner({
         }
       };
 
+      console.log('📸 [QR Scanner] Requesting camera access...');
+      
       await scanner.start(
         cameraId,
         config,
         (decodedText, decodedResult) => {
+          console.log('✅ [QR Scanner] QR code decoded:', decodedText);
           handleScanSuccess(decodedText, decodedResult);
         },
         (errorMessage) => {
           // Scanning errors are normal during frame processing
-          // Only log critical errors
+          // Only log periodically to avoid spam
         }
       );
 
+      console.log('✅ [QR Scanner] Camera started successfully');
       setScanning(true);
+      setInitializingCamera(false);
+      retryCountRef.current = 0; // Reset retry counter on success
       
       // Check for torch support after a short delay to ensure video track is ready
       setTimeout(() => {
@@ -141,32 +275,85 @@ export function QrScanner({
       }, 500);
       
     } catch (err: any) {
-      console.error('Error starting camera:', err);
+      console.error('❌ [QR Scanner] Error starting camera:', err);
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message,
+        code: err.code,
+        constraint: err.constraint
+      });
       
+      setInitializingCamera(false);
+      
+      // Detailed error handling with specific messages
       if (err.name === 'NotAllowedError' || err.message?.includes('Permission')) {
+        console.error('🚫 [QR Scanner] Permission denied by user');
         setPermissionDenied(true);
-        setError('Camera permission denied. Please allow camera access and try again.');
-      } else if (err.name === 'NotFoundError') {
-        setError('No camera found on this device.');
-      } else if (err.message?.includes('insecure')) {
-        setError('Camera access requires HTTPS. Please use a secure connection.');
+        setError('Camera access denied. Please click "Allow" when your browser asks for camera permission, or use the upload option.');
+        
+        toast.error('Camera Permission Required', {
+          description: 'Please allow camera access to scan QR codes'
+        });
+      } else if (err.name === 'NotFoundError' || err.message?.includes('not found')) {
+        console.error('📷 [QR Scanner] No camera found');
+        setError('No camera found on this device. Please use the upload option to select an image.');
+        
+        toast.error('No Camera Found', {
+          description: 'Please use the upload option instead'
+        });
+      } else if (err.name === 'NotReadableError' || err.message?.includes('Could not start video source')) {
+        console.error('🔒 [QR Scanner] Camera in use or hardware error');
+        setError('Camera is in use by another application or there\'s a hardware error. Please close other apps using the camera and try again.');
+        
+        toast.error('Camera Unavailable', {
+          description: 'Camera may be in use by another app'
+        });
+      } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
+        console.error('⚙️ [QR Scanner] Camera constraints not satisfied');
+        setError('Your camera doesn\'t support the requested settings. Try switching cameras or use the upload option.');
+      } else if (err.message?.includes('insecure') || err.message?.includes('https')) {
+        console.error('🔒 [QR Scanner] Insecure context');
+        setError('Camera access requires HTTPS. Please use a secure connection or upload an image instead.');
+      } else if (err.message?.includes('NotSupportedError')) {
+        console.error('🚫 [QR Scanner] Not supported');
+        setError('Camera access is not supported in your browser. Please try a modern browser or use the upload option.');
       } else {
-        setError('Failed to start camera. Please try uploading an image instead.');
+        console.error('❓ [QR Scanner] Unknown error');
+        setError(`Failed to access camera: ${err.message || 'Unknown error'}. Please try uploading an image instead.`);
+        
+        toast.error('Camera Error', {
+          description: 'Please try the upload option'
+        });
       }
       
       setScanning(false);
+      retryCountRef.current++;
+      
+      // Auto-suggest upload after 2 failed attempts
+      if (retryCountRef.current >= 2) {
+        console.log('💡 [QR Scanner] Multiple failures, suggesting upload option');
+        toast.info('Having trouble with the camera?', {
+          description: 'Try uploading an image instead',
+          duration: 5000
+        });
+      }
     }
   };
 
   // Check if torch is supported with retry logic
   const checkTorchSupport = async (retryCount = 0) => {
+    console.log(`🔦 [QR Scanner] Checking torch support (attempt ${retryCount + 1}/3)...`);
+    
     try {
       const videoElement = document.querySelector('#qr-reader video') as HTMLVideoElement;
       
       if (!videoElement || !videoElement.srcObject) {
+        console.warn('⚠️ [QR Scanner] Video element not ready');
         // Retry up to 3 times with delays
         if (retryCount < 3) {
           setTimeout(() => checkTorchSupport(retryCount + 1), 300);
+        } else {
+          console.error('❌ [QR Scanner] Video element never became ready');
         }
         return;
       }
@@ -175,29 +362,39 @@ export function QrScanner({
       const tracks = stream.getVideoTracks();
       
       if (tracks.length === 0) {
+        console.warn('⚠️ [QR Scanner] No video tracks found');
         if (retryCount < 3) {
           setTimeout(() => checkTorchSupport(retryCount + 1), 300);
+        } else {
+          console.error('❌ [QR Scanner] No video tracks available');
         }
         return;
       }
 
       const track = tracks[0];
       videoTrackRef.current = track;
+      console.log('📹 [QR Scanner] Video track acquired:', {
+        label: track.label,
+        readyState: track.readyState,
+        enabled: track.enabled
+      });
       
       // Check capabilities
       const capabilities = track.getCapabilities() as any;
+      console.log('🔧 [QR Scanner] Track capabilities:', capabilities);
       
       if (capabilities && capabilities.torch === true) {
         setTorchSupported(true);
         setTorchReady(true);
-        console.log('✅ Torch capability detected and ready');
+        console.log('✅ [QR Scanner] Torch capability detected and ready');
       } else {
         setTorchSupported(false);
         setTorchReady(true);
-        console.log('⚠️ Torch not supported on this device');
+        console.log('⚠️ [QR Scanner] Torch not supported on this device');
+        console.log('Available capabilities:', Object.keys(capabilities || {}));
       }
     } catch (err) {
-      console.log('Torch capability check failed:', err);
+      console.error('❌ [QR Scanner] Torch capability check failed:', err);
       setTorchSupported(false);
       setTorchReady(true);
     }
@@ -205,17 +402,22 @@ export function QrScanner({
 
   // Toggle flashlight with debouncing and proper error handling
   const toggleTorch = useCallback(async () => {
+    console.log(`🔦 [QR Scanner] Toggle torch requested (current state: ${torchEnabled})`);
+    
     // Prevent rapid toggling
     if (torchToggleTimeoutRef.current) {
+      console.warn('⚠️ [QR Scanner] Torch toggle debounced (too rapid)');
       return;
     }
 
     if (!videoTrackRef.current) {
+      console.error('❌ [QR Scanner] No video track available');
       toast.error('Camera not ready. Please wait a moment.');
       return;
     }
 
     if (!torchSupported) {
+      console.error('❌ [QR Scanner] Torch not supported');
       toast.error('Flashlight not supported on this device', {
         description: 'Please enable your device torch manually if needed.'
       });
@@ -223,6 +425,7 @@ export function QrScanner({
     }
 
     const newTorchState = !torchEnabled;
+    console.log(`🔦 [QR Scanner] Attempting to set torch to: ${newTorchState}`);
 
     try {
       // Apply torch constraint
@@ -231,19 +434,24 @@ export function QrScanner({
       });
       
       setTorchEnabled(newTorchState);
+      console.log(`✅ [QR Scanner] Torch ${newTorchState ? 'enabled' : 'disabled'} successfully`);
       
       // Haptic feedback
       if ('vibrate' in navigator) {
         navigator.vibrate(50);
       }
-
-      console.log(`🔦 Torch ${newTorchState ? 'enabled' : 'disabled'}`);
       
     } catch (err: any) {
-      console.error('Error toggling torch:', err);
+      console.error('❌ [QR Scanner] Error toggling torch:', err);
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message,
+        constraint: err.constraint
+      });
       
       // Provide specific error feedback
       if (err.name === 'NotSupportedError' || err.name === 'OverconstrainedError') {
+        console.error('🚫 [QR Scanner] Torch constraint not supported');
         toast.error('Flashlight not available on this device');
         setTorchSupported(false);
       } else {
@@ -261,7 +469,10 @@ export function QrScanner({
 
   // Switch camera
   const switchCamera = async () => {
+    console.log('🔄 [QR Scanner] Switch camera requested');
+    
     if (cameras.length <= 1) {
+      console.warn('⚠️ [QR Scanner] No other cameras available');
       toast.error('No other cameras available');
       return;
     }
@@ -269,18 +480,20 @@ export function QrScanner({
     try {
       // Turn off torch before switching
       if (torchEnabled && videoTrackRef.current) {
+        console.log('🔦 [QR Scanner] Disabling torch before camera switch');
         try {
           await videoTrackRef.current.applyConstraints({
             advanced: [{ torch: false } as any]
           });
         } catch (err) {
-          console.log('Failed to turn off torch before switch:', err);
+          console.warn('⚠️ [QR Scanner] Failed to turn off torch before switch:', err);
         }
       }
 
       await stopScanning();
       const nextIndex = (currentCameraIndex + 1) % cameras.length;
       setCurrentCameraIndex(nextIndex);
+      console.log(`📸 [QR Scanner] Switching to camera: ${cameras[nextIndex].label}`);
       
       // Wait a bit before starting with new camera
       setTimeout(() => {
@@ -289,13 +502,15 @@ export function QrScanner({
       
       toast.success(`Switched to ${cameras[nextIndex].label}`);
     } catch (err) {
-      console.error('Error switching camera:', err);
+      console.error('❌ [QR Scanner] Error switching camera:', err);
       toast.error('Failed to switch camera');
     }
   };
 
   // Stop scanning and release camera with proper cleanup
   const stopScanning = async () => {
+    console.log('🛑 [QR Scanner] Stopping scanner...');
+    
     try {
       // Turn off torch first if enabled
       if (torchEnabled && videoTrackRef.current) {
@@ -303,18 +518,20 @@ export function QrScanner({
           await videoTrackRef.current.applyConstraints({
             advanced: [{ torch: false } as any]
           });
-          console.log('🔦 Torch disabled before cleanup');
+          console.log('🔦 [QR Scanner] Torch disabled before cleanup');
         } catch (err) {
-          console.log('Failed to disable torch during cleanup:', err);
+          console.warn('⚠️ [QR Scanner] Failed to disable torch during cleanup:', err);
         }
       }
 
       // Stop the scanner
       if (html5QrCodeRef.current) {
         const state = html5QrCodeRef.current.getState();
+        console.log(`📊 [QR Scanner] Scanner state before stop: ${state}`);
+        
         if (state === Html5QrcodeScannerState.SCANNING) {
           await html5QrCodeRef.current.stop();
-          console.log('📷 Scanner stopped');
+          console.log('✅ [QR Scanner] Scanner stopped');
         }
       }
       
@@ -322,20 +539,27 @@ export function QrScanner({
       if (videoTrackRef.current) {
         videoTrackRef.current.stop();
         videoTrackRef.current = null;
-        console.log('📷 Video track released');
+        console.log('✅ [QR Scanner] Video track released');
       }
       
       setScanning(false);
       setTorchEnabled(false);
       setTorchSupported(false);
       setTorchReady(false);
+      setInitializingCamera(false);
+      
+      console.log('✅ [QR Scanner] Cleanup complete');
     } catch (err) {
-      console.error('Error stopping scanner:', err);
+      console.error('❌ [QR Scanner] Error stopping scanner:', err);
     }
   };
 
   // Handle successful scan
   const handleScanSuccess = (decodedText: string, decodedResult: any) => {
+    console.log('🎉 [QR Scanner] Scan successful!');
+    console.log('Decoded text:', decodedText);
+    console.log('Decoded result:', decodedResult);
+    
     setScannedData(decodedText);
     setScanSuccess(true);
     
@@ -356,17 +580,30 @@ export function QrScanner({
 
   // Handle file upload
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📤 [QR Scanner] File upload initiated');
+    
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.warn('⚠️ [QR Scanner] No file selected');
+      return;
+    }
+
+    console.log('📁 [QR Scanner] File selected:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
+      console.error('❌ [QR Scanner] Invalid file type:', file.type);
       toast.error('Please select a valid image file');
       return;
     }
 
     // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
+      console.error('❌ [QR Scanner] File too large:', file.size);
       toast.error('Image size too large. Please use an image under 10MB');
       return;
     }
@@ -376,19 +613,29 @@ export function QrScanner({
       const reader = new FileReader();
       reader.onload = (e) => {
         setUploadedImage(e.target?.result as string);
+        console.log('✅ [QR Scanner] Image preview loaded');
       };
       reader.readAsDataURL(file);
 
+      console.log('🔍 [QR Scanner] Scanning uploaded file...');
+      
       // Scan the file
       if (!html5QrCodeRef.current) {
         html5QrCodeRef.current = new Html5Qrcode("qr-reader");
       }
 
       const result = await html5QrCodeRef.current.scanFile(file, false);
+      console.log('✅ [QR Scanner] File scan successful:', result);
+      
       handleScanSuccess(result, { file: file.name });
       
-    } catch (err) {
-      console.error('Error scanning file:', err);
+    } catch (err: any) {
+      console.error('❌ [QR Scanner] Error scanning file:', err);
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message
+      });
+      
       setUploadedImage(null);
       toast.error('No QR code detected. Try another image or use the camera.');
     }
@@ -401,11 +648,15 @@ export function QrScanner({
 
   // Handle dialog close with debouncing to prevent double-close
   const handleClose = useCallback(() => {
+    console.log('🚪 [QR Scanner] Close requested');
+    
     // Debounce: ignore rapid close clicks within 300ms
     if (isClosing) {
+      console.warn('⚠️ [QR Scanner] Close debounced (already closing)');
       return;
     }
 
+    console.log('🧹 [QR Scanner] Performing cleanup...');
     setIsClosing(true);
 
     // Clear any pending timeouts
@@ -421,7 +672,10 @@ export function QrScanner({
     setUploadedImage(null);
     setError(null);
     setPermissionDenied(false);
+    retryCountRef.current = 0;
     onOpenChange(false);
+
+    console.log('✅ [QR Scanner] Close complete');
 
     // Reset closing flag after 300ms
     closeDebounceRef.current = setTimeout(() => {
@@ -433,6 +687,7 @@ export function QrScanner({
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && open) {
+        console.log('⌨️ [QR Scanner] ESC key pressed');
         handleClose();
       }
     };
@@ -448,7 +703,8 @@ export function QrScanner({
 
   // Auto-start scanning when dialog opens
   useEffect(() => {
-    if (open && cameras.length > 0 && !scanning && !permissionDenied) {
+    if (open && cameras.length > 0 && !scanning && !permissionDenied && cameraSupported) {
+      console.log('🎬 [QR Scanner] Auto-starting camera...');
       startScanning();
     }
     
@@ -462,6 +718,8 @@ export function QrScanner({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log('🔄 [QR Scanner] Component unmounting, final cleanup');
+      
       if (closeDebounceRef.current) {
         clearTimeout(closeDebounceRef.current);
       }
@@ -548,8 +806,31 @@ export function QrScanner({
                 </div>
               )}
 
+              {/* Camera Not Supported */}
+              {!cameraSupported && (
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-sm flex items-center justify-center p-8">
+                  <div className="text-center space-y-4 max-w-sm">
+                    <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+                      <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-white font-semibold text-lg">Camera Not Supported</p>
+                      <p className="text-white/80 text-sm">{supportError}</p>
+                    </div>
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      variant="secondary"
+                      className="w-full"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Image Instead
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Permission Denied / Error State */}
-              {(permissionDenied || error) && !scanning && (
+              {cameraSupported && (permissionDenied || error) && !scanning && (
                 <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-orange-500/10 backdrop-blur-sm flex items-center justify-center p-8">
                   <div className="text-center space-y-4 max-w-sm">
                     <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto">
@@ -557,7 +838,12 @@ export function QrScanner({
                     </div>
                     <div className="space-y-2">
                       <p className="text-white font-semibold text-lg">Camera Access Required</p>
-                      <p className="text-white/80 text-sm">{error || 'Please allow camera access to scan QR codes'}</p>
+                      <p className="text-white/80 text-sm">{error || 'Unable to access camera devices'}</p>
+                      {retryCountRef.current >= 1 && (
+                        <p className="text-white/60 text-xs italic">
+                          💡 Tip: Check browser settings if camera access keeps failing
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2">
                       <Button
@@ -593,11 +879,12 @@ export function QrScanner({
               )}
 
               {/* Loading State */}
-              {!scanning && !error && !permissionDenied && !uploadedImage && (
+              {cameraSupported && initializingCamera && !error && !permissionDenied && !uploadedImage && (
                 <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 backdrop-blur-sm flex items-center justify-center">
                   <div className="text-center space-y-4">
                     <Loader2 className="w-12 h-12 text-white animate-spin mx-auto" />
                     <p className="text-white font-medium">Initializing camera...</p>
+                    <p className="text-white/60 text-sm">Please allow camera access if prompted</p>
                   </div>
                 </div>
               )}
@@ -621,7 +908,7 @@ export function QrScanner({
               </Button>
 
               {/* Switch Camera */}
-              {cameras.length > 1 && (
+              {cameras.length > 1 && cameraSupported && (
                 <Button
                   onClick={switchCamera}
                   variant="secondary"
@@ -635,35 +922,37 @@ export function QrScanner({
               )}
 
               {/* Flashlight Toggle */}
-              <Button
-                onClick={toggleTorch}
-                variant="secondary"
-                size="icon"
-                className={cn(
-                  "h-12 w-12 text-white border-white/20 transition-all",
-                  torchEnabled 
-                    ? "bg-yellow-500 hover:bg-yellow-600 shadow-lg shadow-yellow-500/50" 
-                    : "bg-white/20 hover:bg-white/30"
-                )}
-                disabled={!scanning || !torchReady || !torchSupported || scanSuccess}
-                aria-label={`Toggle flashlight ${torchEnabled ? 'off' : 'on'}`}
-                aria-pressed={torchEnabled}
-                title={
-                  !torchSupported 
-                    ? "Flashlight not supported on this device" 
-                    : !torchReady 
-                    ? "Flashlight initializing..." 
-                    : torchEnabled 
-                    ? "Turn flashlight off" 
-                    : "Turn flashlight on"
-                }
-              >
-                {torchEnabled ? (
-                  <Flashlight className="w-5 h-5" />
-                ) : (
-                  <FlashlightOff className="w-5 h-5" />
-                )}
-              </Button>
+              {cameraSupported && (
+                <Button
+                  onClick={toggleTorch}
+                  variant="secondary"
+                  size="icon"
+                  className={cn(
+                    "h-12 w-12 text-white border-white/20 transition-all",
+                    torchEnabled 
+                      ? "bg-yellow-500 hover:bg-yellow-600 shadow-lg shadow-yellow-500/50" 
+                      : "bg-white/20 hover:bg-white/30"
+                  )}
+                  disabled={!scanning || !torchReady || !torchSupported || scanSuccess}
+                  aria-label={`Toggle flashlight ${torchEnabled ? 'off' : 'on'}`}
+                  aria-pressed={torchEnabled}
+                  title={
+                    !torchSupported 
+                      ? "Flashlight not supported on this device" 
+                      : !torchReady 
+                      ? "Flashlight initializing..." 
+                      : torchEnabled 
+                      ? "Turn flashlight off" 
+                      : "Turn flashlight on"
+                  }
+                >
+                  {torchEnabled ? (
+                    <Flashlight className="w-5 h-5" />
+                  ) : (
+                    <FlashlightOff className="w-5 h-5" />
+                  )}
+                </Button>
+              )}
 
               {/* Close Button */}
               <Button
@@ -679,7 +968,7 @@ export function QrScanner({
             </div>
           </div>
 
-          {/* Privacy Notice */}
+          {/* Privacy Notice & Status */}
           <div className="px-6 py-4 bg-muted/30 border-t">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
@@ -688,9 +977,19 @@ export function QrScanner({
                   <strong>Privacy:</strong> Camera access is used only to scan QR codes locally. 
                   No images or videos are uploaded or stored.
                 </p>
-                {!torchSupported && torchReady && scanning && (
+                {!cameraSupported && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    ⚠️ Camera not supported: {supportError}
+                  </p>
+                )}
+                {cameraSupported && !torchSupported && torchReady && scanning && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     💡 Flashlight not supported — please enable your device torch manually if needed.
+                  </p>
+                )}
+                {scanning && (
+                  <p className="text-xs text-green-600 dark:text-green-400">
+                    ✅ Camera active — point at QR code to scan
                   </p>
                 )}
               </div>
