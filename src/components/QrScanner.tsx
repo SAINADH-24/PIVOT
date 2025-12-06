@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
+import QRCode from 'qrcode';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { 
@@ -13,7 +14,13 @@ import {
   X, 
   AlertCircle, 
   CheckCircle2,
-  Loader2
+  Loader2,
+  QrCode as QrCodeIcon,
+  Download,
+  Copy,
+  Share2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -24,6 +31,9 @@ interface QrScannerProps {
   onScanSuccess: (decodedText: string, decodedResult: any) => void;
   title?: string;
   description?: string;
+  // User data for generating QR code
+  userPhone?: string;
+  userUdi?: string;
 }
 
 interface CameraDevice {
@@ -91,7 +101,9 @@ export function QrScanner({
   onOpenChange, 
   onScanSuccess,
   title = "Scan Receiver QR",
-  description = "Point your camera at the receiver's QR code or upload an image."
+  description = "Point your camera at the receiver's QR code or upload an image.",
+  userPhone,
+  userUdi
 }: QrScannerProps) {
   const [scanning, setScanning] = useState(false);
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
@@ -109,12 +121,19 @@ export function QrScanner({
   const [isClosing, setIsClosing] = useState(false);
   const [initializingCamera, setInitializingCamera] = useState(false);
   
+  // My QR Code view state
+  const [showMyQr, setShowMyQr] = useState(false);
+  const [myQrDataUrl, setMyQrDataUrl] = useState<string>('');
+  const [hidePhone, setHidePhone] = useState(false);
+  const [scanningPaused, setScanningPaused] = useState(false);
+  
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoTrackRef = useRef<MediaStreamTrack | null>(null);
   const torchToggleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const closeDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const retryCountRef = useRef(0);
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Feature detection on mount
   useEffect(() => {
@@ -201,6 +220,188 @@ export function QrScanner({
       }
     }
   };
+
+  // Generate QR code data based on priority
+  const generateQrPayload = useCallback((): string => {
+    // Priority 1: JSON with phone and UDI
+    if (userPhone && userUdi) {
+      return JSON.stringify({
+        type: "pivotal",
+        phone: userPhone,
+        udi: userUdi
+      });
+    }
+    
+    // Priority 2: Plain phone number
+    if (userPhone) {
+      return userPhone;
+    }
+    
+    // Priority 3: UDI text
+    if (userUdi) {
+      return userUdi;
+    }
+    
+    return 'No recipient data available';
+  }, [userPhone, userUdi, hidePhone]);
+
+  // Generate QR code image
+  const generateMyQrCode = useCallback(async () => {
+    console.log('🔲 [QR Scanner] Generating My QR Code...');
+    
+    try {
+      const payload = generateQrPayload();
+      console.log('📝 [QR Scanner] QR Payload:', payload);
+      
+      // Generate QR code with high contrast and appropriate size
+      const qrDataUrl = await QRCode.toDataURL(payload, {
+        width: 280,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        },
+        errorCorrectionLevel: 'M'
+      });
+      
+      setMyQrDataUrl(qrDataUrl);
+      console.log('✅ [QR Scanner] QR Code generated successfully');
+    } catch (err) {
+      console.error('❌ [QR Scanner] Error generating QR code:', err);
+      toast.error('Failed to generate QR code');
+    }
+  }, [generateQrPayload]);
+
+  // Toggle My QR Code view
+  const toggleMyQrView = useCallback(async () => {
+    console.log(`🔄 [QR Scanner] Toggle My QR view (current: ${showMyQr})`);
+    
+    if (!showMyQr) {
+      // Switching to My QR view - pause scanning
+      console.log('⏸️ [QR Scanner] Pausing scanning for My QR view');
+      setScanningPaused(true);
+      await generateMyQrCode();
+      setShowMyQr(true);
+    } else {
+      // Switching back to Scan view - resume scanning
+      console.log('▶️ [QR Scanner] Resuming scanning from My QR view');
+      setShowMyQr(false);
+      setScanningPaused(false);
+      // Scanner will auto-resume via useEffect
+    }
+  }, [showMyQr, generateMyQrCode]);
+
+  // Download QR code as PNG
+  const downloadQrCode = useCallback(async () => {
+    console.log('💾 [QR Scanner] Downloading QR code...');
+    
+    try {
+      const payload = generateQrPayload();
+      
+      // Generate high-res QR code for download
+      const canvas = document.createElement('canvas');
+      await QRCode.toCanvas(canvas, payload, {
+        width: 512,
+        margin: 4,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        },
+        errorCorrectionLevel: 'H'
+      });
+      
+      // Convert to blob and download
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `pivot-qr-${userUdi || 'code'}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          toast.success('QR code downloaded');
+          console.log('✅ [QR Scanner] QR code downloaded');
+        }
+      }, 'image/png');
+    } catch (err) {
+      console.error('❌ [QR Scanner] Error downloading QR code:', err);
+      toast.error('Failed to download QR code');
+    }
+  }, [generateQrPayload, userUdi]);
+
+  // Copy recipient data to clipboard
+  const copyRecipient = useCallback(async () => {
+    console.log('📋 [QR Scanner] Copying recipient data...');
+    
+    try {
+      const payload = generateQrPayload();
+      await navigator.clipboard.writeText(payload);
+      toast.success('Recipient data copied to clipboard');
+      console.log('✅ [QR Scanner] Recipient data copied');
+      
+      // Haptic feedback
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+    } catch (err) {
+      console.error('❌ [QR Scanner] Error copying to clipboard:', err);
+      toast.error('Failed to copy to clipboard');
+    }
+  }, [generateQrPayload]);
+
+  // Share QR code using Web Share API
+  const shareQrCode = useCallback(async () => {
+    console.log('🔗 [QR Scanner] Sharing QR code...');
+    
+    try {
+      const payload = generateQrPayload();
+      
+      // Check if Web Share API is available
+      if (!navigator.share) {
+        console.warn('⚠️ [QR Scanner] Web Share API not supported');
+        toast.error('Sharing not supported on this device');
+        return;
+      }
+      
+      // Generate blob for sharing
+      const canvas = document.createElement('canvas');
+      await QRCode.toCanvas(canvas, payload, {
+        width: 512,
+        margin: 4,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        },
+        errorCorrectionLevel: 'H'
+      });
+      
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          const file = new File([blob], 'pivot-qr-code.png', { type: 'image/png' });
+          
+          try {
+            await navigator.share({
+              title: 'My P!VOT QR Code',
+              text: 'Scan this QR code to send me data',
+              files: [file]
+            });
+            console.log('✅ [QR Scanner] QR code shared successfully');
+          } catch (shareErr: any) {
+            if (shareErr.name !== 'AbortError') {
+              console.error('❌ [QR Scanner] Error sharing:', shareErr);
+              toast.error('Failed to share QR code');
+            }
+          }
+        }
+      }, 'image/png');
+    } catch (err) {
+      console.error('❌ [QR Scanner] Error preparing share:', err);
+      toast.error('Failed to share QR code');
+    }
+  }, [generateQrPayload]);
 
   // Start camera scanning with comprehensive error handling
   const startScanning = async () => {
@@ -701,9 +902,9 @@ export function QrScanner({
     };
   }, [open, handleClose]);
 
-  // Auto-start scanning when dialog opens
+  // Auto-start scanning when dialog opens (but not if in My QR view)
   useEffect(() => {
-    if (open && cameras.length > 0 && !scanning && !permissionDenied && cameraSupported) {
+    if (open && cameras.length > 0 && !scanning && !permissionDenied && cameraSupported && !showMyQr && !scanningPaused) {
       console.log('🎬 [QR Scanner] Auto-starting camera...');
       startScanning();
     }
@@ -713,7 +914,7 @@ export function QrScanner({
         stopScanning();
       }
     };
-  }, [open, cameras.length]);
+  }, [open, cameras.length, showMyQr, scanningPaused]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -745,8 +946,14 @@ export function QrScanner({
           <DialogHeader className="p-6 pb-4 space-y-2">
             <div className="flex items-start justify-between">
               <div className="space-y-2 flex-1">
-                <DialogTitle className="text-2xl font-bold">{title}</DialogTitle>
-                <DialogDescription className="text-base">{description}</DialogDescription>
+                <DialogTitle className="text-2xl font-bold">
+                  {showMyQr ? 'My QR Code' : title}
+                </DialogTitle>
+                <DialogDescription className="text-base">
+                  {showMyQr 
+                    ? 'Show this QR code to the sender so they can scan and autofill your info.' 
+                    : description}
+                </DialogDescription>
               </div>
               <Button
                 variant="ghost"
@@ -767,124 +974,234 @@ export function QrScanner({
             </div>
           </DialogHeader>
 
-          {/* Scanner Area */}
+          {/* Scanner Area OR My QR Code Display */}
           <div className="relative bg-black">
-            {/* QR Reader Container */}
             <div className="relative aspect-square w-full overflow-hidden">
-              <div id="qr-reader" className="w-full h-full"></div>
-              
-              {/* Scanning Overlay */}
-              {scanning && !scanSuccess && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="relative w-64 h-64">
-                    {/* Corner borders */}
-                    <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-white rounded-tl-2xl"></div>
-                    <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-white rounded-tr-2xl"></div>
-                    <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-white rounded-bl-2xl"></div>
-                    <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-white rounded-br-2xl"></div>
-                    
-                    {/* Scanning line */}
-                    <div className="absolute inset-x-0 top-1/2 h-1 bg-gradient-to-r from-transparent via-violet-500 to-transparent animate-pulse"></div>
-                    
-                    {/* Center target */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-4 h-4 border-2 border-white rounded-full animate-ping"></div>
+              {!showMyQr ? (
+                <>
+                  {/* Existing Scanner UI */}
+                  <div id="qr-reader" className="w-full h-full"></div>
+                  
+                  {/* Scanning Overlay */}
+                  {scanning && !scanSuccess && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="relative w-64 h-64">
+                        {/* Corner borders */}
+                        <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-white rounded-tl-2xl"></div>
+                        <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-white rounded-tr-2xl"></div>
+                        <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-white rounded-bl-2xl"></div>
+                        <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-white rounded-br-2xl"></div>
+                        
+                        {/* Scanning line */}
+                        <div className="absolute inset-x-0 top-1/2 h-1 bg-gradient-to-r from-transparent via-violet-500 to-transparent animate-pulse"></div>
+                        
+                        {/* Center target */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-4 h-4 border-2 border-white rounded-full animate-ping"></div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {/* Success Animation */}
-              {scanSuccess && (
-                <div className="absolute inset-0 bg-green-500/20 backdrop-blur-sm flex items-center justify-center animate-scale-in">
-                  <div className="text-center space-y-4">
-                    <div className="w-24 h-24 rounded-full bg-green-500 flex items-center justify-center mx-auto animate-check">
-                      <CheckCircle2 className="w-12 h-12 text-white" />
+                  {/* Success Animation */}
+                  {scanSuccess && (
+                    <div className="absolute inset-0 bg-green-500/20 backdrop-blur-sm flex items-center justify-center animate-scale-in">
+                      <div className="text-center space-y-4">
+                        <div className="w-24 h-24 rounded-full bg-green-500 flex items-center justify-center mx-auto animate-check">
+                          <CheckCircle2 className="w-12 h-12 text-white" />
+                        </div>
+                        <p className="text-white text-lg font-semibold">QR Code Scanned!</p>
+                      </div>
                     </div>
-                    <p className="text-white text-lg font-semibold">QR Code Scanned!</p>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {/* Camera Not Supported */}
-              {!cameraSupported && (
-                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-sm flex items-center justify-center p-8">
-                  <div className="text-center space-y-4 max-w-sm">
-                    <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
-                      <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                  {/* Camera Not Supported */}
+                  {!cameraSupported && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-sm flex items-center justify-center p-8">
+                      <div className="text-center space-y-4 max-w-sm">
+                        <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mx-auto">
+                          <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-white font-semibold text-lg">Camera Not Supported</p>
+                          <p className="text-white/80 text-sm">{supportError}</p>
+                        </div>
+                        <Button
+                          onClick={() => fileInputRef.current?.click()}
+                          variant="secondary"
+                          className="w-full"
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload Image Instead
+                        </Button>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-white font-semibold text-lg">Camera Not Supported</p>
-                      <p className="text-white/80 text-sm">{supportError}</p>
-                    </div>
-                    <Button
-                      onClick={() => fileInputRef.current?.click()}
-                      variant="secondary"
-                      className="w-full"
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Image Instead
-                    </Button>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {/* Permission Denied / Error State */}
-              {cameraSupported && (permissionDenied || error) && !scanning && (
-                <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-orange-500/10 backdrop-blur-sm flex items-center justify-center p-8">
-                  <div className="text-center space-y-4 max-w-sm">
-                    <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto">
-                      <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  {/* Permission Denied / Error State */}
+                  {cameraSupported && (permissionDenied || error) && !scanning && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-orange-500/10 backdrop-blur-sm flex items-center justify-center p-8">
+                      <div className="text-center space-y-4 max-w-sm">
+                        <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto">
+                          <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-white font-semibold text-lg">Camera Access Required</p>
+                          <p className="text-white/80 text-sm">{error || 'Unable to access camera devices'}</p>
+                          {retryCountRef.current >= 1 && (
+                            <p className="text-white/60 text-xs italic">
+                              💡 Tip: Check browser settings if camera access keeps failing
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            onClick={startScanning}
+                            variant="secondary"
+                            className="w-full"
+                          >
+                            <Camera className="w-4 h-4 mr-2" />
+                            Retry Camera Access
+                          </Button>
+                          <Button
+                            onClick={() => fileInputRef.current?.click()}
+                            variant="outline"
+                            className="w-full bg-white/10 hover:bg-white/20 text-white border-white/20"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Image Instead
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-white font-semibold text-lg">Camera Access Required</p>
-                      <p className="text-white/80 text-sm">{error || 'Unable to access camera devices'}</p>
-                      {retryCountRef.current >= 1 && (
-                        <p className="text-white/60 text-xs italic">
-                          💡 Tip: Check browser settings if camera access keeps failing
+                  )}
+
+                  {/* Uploaded Image Preview */}
+                  {uploadedImage && (
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                      <img 
+                        src={uploadedImage} 
+                        alt="Uploaded QR" 
+                        className="max-w-full max-h-full object-contain rounded-lg"
+                      />
+                    </div>
+                  )}
+
+                  {/* Loading State */}
+                  {cameraSupported && initializingCamera && !error && !permissionDenied && !uploadedImage && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 backdrop-blur-sm flex items-center justify-center">
+                      <div className="text-center space-y-4">
+                        <Loader2 className="w-12 h-12 text-white animate-spin mx-auto" />
+                        <p className="text-white font-medium">Initializing camera...</p>
+                        <p className="text-white/60 text-sm">Please allow camera access if prompted</p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* My QR Code Display */
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 backdrop-blur-sm flex items-center justify-center p-6">
+                  <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
+                    {/* QR Code Display */}
+                    <div className="bg-white p-4 rounded-xl flex items-center justify-center">
+                      {myQrDataUrl ? (
+                        <img 
+                          src={myQrDataUrl} 
+                          alt="My QR Code" 
+                          className="w-[280px] h-[280px]"
+                        />
+                      ) : (
+                        <div className="w-[280px] h-[280px] flex items-center justify-center">
+                          <Loader2 className="w-12 h-12 text-violet-600 animate-spin" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Recipient Info */}
+                    <div className="space-y-2 text-sm">
+                      {(userPhone && !hidePhone) && (
+                        <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+                          <span className="text-muted-foreground">Phone:</span>
+                          <span className="font-mono font-semibold">{userPhone}</span>
+                        </div>
+                      )}
+                      {userUdi && (
+                        <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+                          <span className="text-muted-foreground">UDI:</span>
+                          <span className="font-mono font-semibold">{userUdi}</span>
+                        </div>
+                      )}
+                      {!userPhone && !userUdi && (
+                        <p className="text-center text-muted-foreground text-xs italic">
+                          No recipient data available
                         </p>
                       )}
                     </div>
-                    <div className="flex flex-col gap-2">
+
+                    {/* Privacy Toggle */}
+                    {userPhone && userUdi && (
                       <Button
-                        onClick={startScanning}
-                        variant="secondary"
-                        className="w-full"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setHidePhone(!hidePhone);
+                          // Regenerate QR without phone if hiding
+                          generateMyQrCode();
+                        }}
+                        className="w-full text-xs"
                       >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Retry Camera Access
+                        {hidePhone ? (
+                          <>
+                            <Eye className="w-3 h-3 mr-2" />
+                            Show phone number
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="w-3 h-3 mr-2" />
+                            Hide phone number
+                          </>
+                        )}
+                      </Button>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadQrCode}
+                        className="flex flex-col items-center gap-1 h-auto py-2"
+                        aria-label="Download QR code as PNG"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span className="text-xs">Download</span>
                       </Button>
                       <Button
-                        onClick={() => fileInputRef.current?.click()}
                         variant="outline"
-                        className="w-full bg-white/10 hover:bg-white/20 text-white border-white/20"
+                        size="sm"
+                        onClick={copyRecipient}
+                        className="flex flex-col items-center gap-1 h-auto py-2"
+                        aria-label="Copy recipient data to clipboard"
                       >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Image Instead
+                        <Copy className="w-4 h-4" />
+                        <span className="text-xs">Copy</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={shareQrCode}
+                        className="flex flex-col items-center gap-1 h-auto py-2"
+                        aria-label="Share QR code"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        <span className="text-xs">Share</span>
                       </Button>
                     </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Uploaded Image Preview */}
-              {uploadedImage && (
-                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                  <img 
-                    src={uploadedImage} 
-                    alt="Uploaded QR" 
-                    className="max-w-full max-h-full object-contain rounded-lg"
-                  />
-                </div>
-              )}
-
-              {/* Loading State */}
-              {cameraSupported && initializingCamera && !error && !permissionDenied && !uploadedImage && (
-                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 backdrop-blur-sm flex items-center justify-center">
-                  <div className="text-center space-y-4">
-                    <Loader2 className="w-12 h-12 text-white animate-spin mx-auto" />
-                    <p className="text-white font-medium">Initializing camera...</p>
-                    <p className="text-white/60 text-sm">Please allow camera access if prompted</p>
+                    {/* Caption */}
+                    <p className="text-xs text-center text-muted-foreground leading-relaxed">
+                      Show this QR to the sender so they can scan and autofill your info.
+                    </p>
                   </div>
                 </div>
               )}
@@ -900,7 +1217,7 @@ export function QrScanner({
                 variant="secondary"
                 size="lg"
                 className="flex-1 bg-white hover:bg-white/90 text-violet-600 font-semibold h-12"
-                disabled={scanSuccess}
+                disabled={scanSuccess || showMyQr}
                 aria-label="Upload QR code image from device"
               >
                 <Upload className="w-5 h-5 mr-2" />
@@ -908,7 +1225,7 @@ export function QrScanner({
               </Button>
 
               {/* Switch Camera */}
-              {cameras.length > 1 && cameraSupported && (
+              {cameras.length > 1 && cameraSupported && !showMyQr && (
                 <Button
                   onClick={switchCamera}
                   variant="secondary"
@@ -922,7 +1239,7 @@ export function QrScanner({
               )}
 
               {/* Flashlight Toggle */}
-              {cameraSupported && (
+              {cameraSupported && !showMyQr && (
                 <Button
                   onClick={toggleTorch}
                   variant="secondary"
@@ -954,6 +1271,31 @@ export function QrScanner({
                 </Button>
               )}
 
+              {/* My QR Code Toggle Button */}
+              <Button
+                onClick={toggleMyQrView}
+                variant="secondary"
+                size="icon"
+                className={cn(
+                  "h-12 w-12 text-white border-white/20 transition-all",
+                  showMyQr 
+                    ? "bg-violet-500 hover:bg-violet-600 shadow-lg shadow-violet-500/50" 
+                    : "bg-white/20 hover:bg-white/30"
+                )}
+                disabled={scanSuccess}
+                aria-label={showMyQr ? "Return to scan view" : "Show my QR code"}
+                aria-pressed={showMyQr}
+                title={showMyQr ? "Back to Scan" : "My QR Code"}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleMyQrView();
+                  }
+                }}
+              >
+                <QrCodeIcon className="w-5 h-5" />
+              </Button>
+
               {/* Close Button */}
               <Button
                 onClick={handleClose}
@@ -974,22 +1316,28 @@ export function QrScanner({
               <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  <strong>Privacy:</strong> Camera access is used only to scan QR codes locally. 
-                  No images or videos are uploaded or stored.
+                  <strong>Privacy:</strong> {showMyQr 
+                    ? 'Your QR code is generated client-side only. No data is sent to any server.'
+                    : 'Camera access is used only to scan QR codes locally. No images or videos are uploaded or stored.'}
                 </p>
-                {!cameraSupported && (
+                {!showMyQr && !cameraSupported && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     ⚠️ Camera not supported: {supportError}
                   </p>
                 )}
-                {cameraSupported && !torchSupported && torchReady && scanning && (
+                {!showMyQr && cameraSupported && !torchSupported && torchReady && scanning && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     💡 Flashlight not supported — please enable your device torch manually if needed.
                   </p>
                 )}
-                {scanning && (
+                {!showMyQr && scanning && (
                   <p className="text-xs text-green-600 dark:text-green-400">
                     ✅ Camera active — point at QR code to scan
+                  </p>
+                )}
+                {showMyQr && (
+                  <p className="text-xs text-violet-600 dark:text-violet-400">
+                    📱 Tap "My QR Code" again to resume scanning
                   </p>
                 )}
               </div>
