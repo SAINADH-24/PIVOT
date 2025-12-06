@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/contexts/AuthContext';
-import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle, QrCode, X } from 'lucide-react';
+import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle, QrCode } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { QrScanner } from '@/components/QrScanner';
 
 interface SendDataPageProps {
   onNavigate: (page: string) => void;
@@ -24,9 +25,80 @@ interface ValidationErrors {
   amount?: string;
 }
 
+// QR Code parsing helper functions
+function parseQrCodeData(qrData: string): { phone?: string; udi?: string; network?: string } {
+  try {
+    // Try parsing as JSON first
+    const jsonData = JSON.parse(qrData);
+    return {
+      phone: jsonData.phone || jsonData.number || jsonData.phoneNumber,
+      udi: jsonData.udi || jsonData.id || jsonData.udiId,
+      network: jsonData.network || jsonData.provider
+    };
+  } catch {
+    // Not JSON, try other formats
+    
+    // Format: phone:+1234567890,udi:@user-phone,network:Jio
+    if (qrData.includes(':') && qrData.includes(',')) {
+      const result: { phone?: string; udi?: string; network?: string } = {};
+      const parts = qrData.split(',');
+      
+      parts.forEach(part => {
+        const [key, value] = part.split(':');
+        const normalizedKey = key.trim().toLowerCase();
+        
+        if (normalizedKey === 'phone' || normalizedKey === 'number') {
+          result.phone = value.trim();
+        } else if (normalizedKey === 'udi' || normalizedKey === 'id') {
+          result.udi = value.trim();
+        } else if (normalizedKey === 'network' || normalizedKey === 'provider') {
+          result.network = value.trim();
+        }
+      });
+      
+      return result;
+    }
+    
+    // Plain phone number detection
+    const phoneRegex = /^\+?\d{10,15}$/;
+    if (phoneRegex.test(qrData.trim())) {
+      return { phone: qrData.trim() };
+    }
+    
+    // UDI handle detection (starts with @)
+    if (qrData.trim().startsWith('@')) {
+      return { udi: qrData.trim() };
+    }
+    
+    // URL format: pivotapp://send?phone=+1234567890&udi=@user&network=Jio
+    if (qrData.includes('pivotapp://') || qrData.includes('https://')) {
+      try {
+        const url = new URL(qrData.replace('pivotapp://', 'https://'));
+        const params = new URLSearchParams(url.search);
+        
+        return {
+          phone: params.get('phone') || params.get('number') || undefined,
+          udi: params.get('udi') || params.get('id') || undefined,
+          network: params.get('network') || params.get('provider') || undefined
+        };
+      } catch {
+        // Invalid URL format
+      }
+    }
+    
+    return {};
+  }
+}
+
+function validatePhoneNumber(phone: string): boolean {
+  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  return /^\+?\d{10,15}$/.test(cleaned);
+}
+
 export function SendDataPage({ onNavigate }: SendDataPageProps) {
   const { user, updateUser } = useAuth();
   const [recipientPhone, setRecipientPhone] = useState('');
+  const [recipientUdi, setRecipientUdi] = useState('');
   const [network, setNetwork] = useState('');
   const [dataAmount, setDataAmount] = useState([1]);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -157,6 +229,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
       type: 'Data Transfer - Sent',
       amount: dataAmount[0],
       recipient: recipientPhone,
+      recipientUdi: recipientUdi || undefined,
       network: network,
       fee: pivotPointsFee,
       date: new Date().toISOString(),
@@ -170,6 +243,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
     setTimeout(() => {
       setTransferSuccess(false);
       setRecipientPhone('');
+      setRecipientUdi('');
       setNetwork('');
       setDataAmount([1]);
       setErrors({});
@@ -183,34 +257,45 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
     setShowQrScanner(true);
   };
 
-  const handleQrScanComplete = (scannedData: string) => {
-    // Mock QR code parsing - in production, this would parse actual QR data
-    // Format could be: phone:+1234567890,udi:@user-phone,network:Jio
-    try {
-      const parts = scannedData.split(',');
-      const phoneMatch = parts.find(p => p.startsWith('phone:'));
-      const networkMatch = parts.find(p => p.startsWith('network:'));
-      
-      if (phoneMatch) {
-        const phoneValue = phoneMatch.split(':')[1];
-        setRecipientPhone(phoneValue);
-      }
-      if (networkMatch) {
-        const networkValue = networkMatch.split(':')[1];
-        setNetwork(networkValue);
-      }
-      
-      toast.success('QR code scanned successfully!');
-      setShowQrScanner(false);
-    } catch (error) {
-      toast.error('Failed to parse QR code');
+  const handleQrScanSuccess = (decodedText: string, decodedResult: any) => {
+    const parsed = parseQrCodeData(decodedText);
+    
+    let updated = false;
+    
+    // Autofill phone number
+    if (parsed.phone && validatePhoneNumber(parsed.phone)) {
+      setRecipientPhone(parsed.phone);
+      updated = true;
     }
-  };
-
-  const mockScanQr = () => {
-    // Simulate successful QR scan with mock data
-    const mockQrData = 'phone:+1234567890,udi:@john-mobile,network:Jio';
-    handleQrScanComplete(mockQrData);
+    
+    // Autofill UDI
+    if (parsed.udi) {
+      setRecipientUdi(parsed.udi);
+      updated = true;
+    }
+    
+    // Autofill network
+    if (parsed.network && networks.includes(parsed.network)) {
+      setNetwork(parsed.network);
+      updated = true;
+    }
+    
+    if (updated) {
+      const details = [];
+      if (parsed.phone) details.push(parsed.phone);
+      if (parsed.udi) details.push(parsed.udi);
+      if (parsed.network) details.push(parsed.network);
+      
+      toast.success(`Scanned: ${details.join(' • ')} — filled into recipient`);
+      
+      // Clear errors
+      setErrors({});
+      setTouched({ phone: false, network: false });
+    } else {
+      toast.error('Could not extract valid data from QR code');
+    }
+    
+    setShowQrScanner(false);
   };
 
   const isFormValid = !errors.phone && !errors.network && !errors.amount && recipientPhone && network;
@@ -288,6 +373,14 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
                 <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
                   <AlertCircle className="w-4 h-4" />
                   <span>{errors.phone}</span>
+                </div>
+              )}
+              {recipientUdi && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="font-mono">
+                    {recipientUdi}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">UDI Identifier</span>
                 </div>
               )}
             </div>
@@ -398,6 +491,11 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Recipient</p>
                 <p className="font-semibold text-base">{recipientPhone}</p>
+                {recipientUdi && (
+                  <Badge variant="secondary" className="font-mono text-xs mt-1">
+                    {recipientUdi}
+                  </Badge>
+                )}
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Network</p>
@@ -493,47 +591,13 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
       </Dialog>
 
       {/* QR Scanner Dialog */}
-      <Dialog open={showQrScanner} onOpenChange={setShowQrScanner}>
-        <DialogContent className="animate-scale-in max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">Scan QR Code</DialogTitle>
-            <DialogDescription className="text-base">
-              Scan the receiver's QR code to auto-fill their details
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-6">
-            {/* Mock QR Scanner UI */}
-            <div className="aspect-square bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 rounded-2xl border-2 border-dashed border-violet-300 dark:border-violet-700 flex flex-col items-center justify-center gap-6 p-8">
-              <div className="w-32 h-32 border-4 border-violet-500 rounded-2xl animate-pulse flex items-center justify-center">
-                <QrCode className="w-16 h-16 text-violet-600 dark:text-violet-400" />
-              </div>
-              <div className="text-center space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">
-                  Position QR code within the frame
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  (Demo mode - Click button below to simulate scan)
-                </p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowQrScanner(false)}
-              className="hover-scale"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={mockScanQr}
-              className="hover-scale bg-gradient-to-r from-violet-500 to-fuchsia-600"
-            >
-              Simulate Scan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <QrScanner
+        open={showQrScanner}
+        onOpenChange={setShowQrScanner}
+        onScanSuccess={handleQrScanSuccess}
+        title="Scan Receiver QR"
+        description="Point your camera at the receiver's QR code or upload an image."
+      />
 
       {/* Success Dialog */}
       <Dialog open={transferSuccess} onOpenChange={setTransferSuccess}>
