@@ -597,6 +597,8 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
         onScanSuccess={handleQrScanSuccess}
         title="Scan Receiver QR"
         description="Point your camera at the receiver's QR code or upload an image."
+        userPhone={user?.phoneNumber}
+        userUdi={user?.udi}
       />
 
       {/* Success Dialog */}
