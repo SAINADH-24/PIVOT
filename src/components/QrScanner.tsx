@@ -31,7 +31,6 @@ interface QrScannerProps {
   onScanSuccess: (decodedText: string, decodedResult: any) => void;
   title?: string;
   description?: string;
-  // User data for generating QR code
   userPhone?: string;
   userUdi?: string;
 }
@@ -41,11 +40,21 @@ interface CameraDevice {
   label: string;
 }
 
+// Scanner state machine for clean pause/resume
+type ScannerState = 'scanning' | 'paused' | 'stopped';
+
+// Debug log entry for QA
+interface DebugLogEntry {
+  timestamp: number;
+  action: string;
+  status: 'success' | 'error' | 'info';
+  details?: string;
+}
+
 // Feature detection utilities
 const checkCameraSupport = (): { supported: boolean; reason?: string } => {
   console.log('🔍 [QR Scanner] Checking camera support...');
   
-  // Check if running in secure context (HTTPS or localhost)
   if (!window.isSecureContext) {
     console.error('❌ [QR Scanner] Not a secure context (HTTPS required)');
     return { 
@@ -54,7 +63,6 @@ const checkCameraSupport = (): { supported: boolean; reason?: string } => {
     };
   }
   
-  // Check if MediaDevices API is available
   if (!navigator.mediaDevices) {
     console.error('❌ [QR Scanner] MediaDevices API not available');
     return { 
@@ -63,7 +71,6 @@ const checkCameraSupport = (): { supported: boolean; reason?: string } => {
     };
   }
   
-  // Check if getUserMedia is available
   if (!navigator.mediaDevices.getUserMedia) {
     console.error('❌ [QR Scanner] getUserMedia not available');
     return { 
@@ -81,7 +88,6 @@ const checkCameraPermission = async (): Promise<'granted' | 'denied' | 'prompt' 
   console.log('🔍 [QR Scanner] Checking camera permission state...');
   
   try {
-    // Check if Permissions API is available
     if (!navigator.permissions || !navigator.permissions.query) {
       console.warn('⚠️ [QR Scanner] Permissions API not available');
       return 'unsupported';
@@ -125,7 +131,14 @@ export function QrScanner({
   const [showMyQr, setShowMyQr] = useState(false);
   const [myQrDataUrl, setMyQrDataUrl] = useState<string>('');
   const [hidePhone, setHidePhone] = useState(false);
-  const [scanningPaused, setScanningPaused] = useState(false);
+  const [generatingQr, setGeneratingQr] = useState(false);
+  
+  // Scanner state machine for clean pause/resume
+  const [scannerState, setScannerState] = useState<ScannerState>('stopped');
+  
+  // Debug logs for QA (last 5 entries)
+  const [debugLogs, setDebugLogs] = useState<DebugLogEntry[]>([]);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,7 +146,20 @@ export function QrScanner({
   const torchToggleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const closeDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const retryCountRef = useRef(0);
-  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const scanningLoopActiveRef = useRef(false);
+
+  // Add debug log entry
+  const addDebugLog = useCallback((action: string, status: 'success' | 'error' | 'info', details?: string) => {
+    const entry: DebugLogEntry = {
+      timestamp: Date.now(),
+      action,
+      status,
+      details
+    };
+    setDebugLogs(prev => [...prev.slice(-4), entry]); // Keep last 5
+    console.log(`[Debug Log] ${action} - ${status}${details ? `: ${details}` : ''}`);
+  }, []);
 
   // Feature detection on mount
   useEffect(() => {
@@ -162,7 +188,6 @@ export function QrScanner({
     console.log('📋 [QR Scanner] Fetching available cameras...');
     
     try {
-      // Check permission state first
       const permissionState = await checkCameraPermission();
       console.log(`🔐 [QR Scanner] Permission state: ${permissionState}`);
       
@@ -185,7 +210,6 @@ export function QrScanner({
         
         console.log('📋 [QR Scanner] Available cameras:', cameraDevices.map(c => c.label).join(', '));
         
-        // Try to find rear/environment camera
         const rearCameraIndex = cameraDevices.findIndex(cam => 
           cam.label.toLowerCase().includes('back') || 
           cam.label.toLowerCase().includes('rear') ||
@@ -204,11 +228,6 @@ export function QrScanner({
       }
     } catch (err: any) {
       console.error('❌ [QR Scanner] Error getting cameras:', err);
-      console.error('Error details:', {
-        name: err.name,
-        message: err.message,
-        stack: err.stack
-      });
       
       if (err.name === 'NotAllowedError') {
         setPermissionDenied(true);
@@ -221,8 +240,13 @@ export function QrScanner({
     }
   };
 
-  // Generate QR code data based on priority
+  // Generate QR code payload based on priority (with hide phone logic)
   const generateQrPayload = useCallback((): string => {
+    // If hiding phone, only use UDI
+    if (hidePhone && userUdi) {
+      return userUdi;
+    }
+    
     // Priority 1: JSON with phone and UDI
     if (userPhone && userUdi) {
       return JSON.stringify({
@@ -245,163 +269,299 @@ export function QrScanner({
     return 'No recipient data available';
   }, [userPhone, userUdi, hidePhone]);
 
-  // Generate QR code image
+  // Generate QR code image (non-blocking with requestIdleCallback)
   const generateMyQrCode = useCallback(async () => {
-    console.log('🔲 [QR Scanner] Generating My QR Code...');
+    console.log('🔲 [QR Scanner] Generating My QR Code (non-blocking)...');
+    addDebugLog('Generate QR', 'info', 'Starting generation');
+    setGeneratingQr(true);
     
-    try {
-      const payload = generateQrPayload();
-      console.log('📝 [QR Scanner] QR Payload:', payload);
+    // Use requestIdleCallback or setTimeout to avoid blocking UI
+    const generateAsync = () => new Promise<void>((resolve) => {
+      const callback = async () => {
+        try {
+          const payload = generateQrPayload();
+          console.log('📝 [QR Scanner] QR Payload:', payload);
+          
+          // Generate QR code with high contrast and appropriate size
+          const qrDataUrl = await QRCode.toDataURL(payload, {
+            width: 280,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            },
+            errorCorrectionLevel: 'M'
+          });
+          
+          setMyQrDataUrl(qrDataUrl);
+          console.log('✅ [QR Scanner] QR Code generated successfully');
+          addDebugLog('Generate QR', 'success');
+          resolve();
+        } catch (err) {
+          console.error('❌ [QR Scanner] Error generating QR code:', err);
+          toast.error('Failed to generate QR code');
+          addDebugLog('Generate QR', 'error', err instanceof Error ? err.message : 'Unknown error');
+          resolve();
+        } finally {
+          setGeneratingQr(false);
+        }
+      };
       
-      // Generate QR code with high contrast and appropriate size
-      const qrDataUrl = await QRCode.toDataURL(payload, {
-        width: 280,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        },
-        errorCorrectionLevel: 'M'
-      });
-      
-      setMyQrDataUrl(qrDataUrl);
-      console.log('✅ [QR Scanner] QR Code generated successfully');
-    } catch (err) {
-      console.error('❌ [QR Scanner] Error generating QR code:', err);
-      toast.error('Failed to generate QR code');
-    }
-  }, [generateQrPayload]);
+      // Use requestIdleCallback if available, otherwise setTimeout
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(callback);
+      } else {
+        setTimeout(callback, 0);
+      }
+    });
+    
+    await generateAsync();
+  }, [generateQrPayload, addDebugLog]);
 
-  // Toggle My QR Code view
+  // Toggle My QR Code view with smooth animation and proper state management
   const toggleMyQrView = useCallback(async () => {
-    console.log(`🔄 [QR Scanner] Toggle My QR view (current: ${showMyQr})`);
+    console.log(`🔄 [QR Scanner] Toggle My QR view (current: ${showMyQr}, state: ${scannerState})`);
+    addDebugLog('Toggle My QR View', 'info', showMyQr ? 'Returning to scan' : 'Opening QR view');
     
     if (!showMyQr) {
-      // Switching to My QR view - pause scanning
+      // Switching to My QR view - pause scanning cleanly
       console.log('⏸️ [QR Scanner] Pausing scanning for My QR view');
-      setScanningPaused(true);
+      setScannerState('paused');
+      
+      // Generate QR code off main thread
       await generateMyQrCode();
-      setShowMyQr(true);
+      
+      // Add slight delay for smooth animation
+      setTimeout(() => {
+        setShowMyQr(true);
+      }, 50);
     } else {
-      // Switching back to Scan view - resume scanning
-      console.log('▶️ [QR Scanner] Resuming scanning from My QR view');
+      // Switching back to Scan view - resume scanning with 200ms delay
+      console.log('▶️ [QR Scanner] Preparing to resume scanning from My QR view');
       setShowMyQr(false);
-      setScanningPaused(false);
-      // Scanner will auto-resume via useEffect
-    }
-  }, [showMyQr, generateMyQrCode]);
-
-  // Download QR code as PNG
-  const downloadQrCode = useCallback(async () => {
-    console.log('💾 [QR Scanner] Downloading QR code...');
-    
-    try {
-      const payload = generateQrPayload();
       
-      // Generate high-res QR code for download
-      const canvas = document.createElement('canvas');
-      await QRCode.toCanvas(canvas, payload, {
-        width: 512,
-        margin: 4,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        },
-        errorCorrectionLevel: 'H'
-      });
-      
-      // Convert to blob and download
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `pivot-qr-${userUdi || 'code'}.png`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          
-          toast.success('QR code downloaded');
-          console.log('✅ [QR Scanner] QR code downloaded');
-        }
-      }, 'image/png');
-    } catch (err) {
-      console.error('❌ [QR Scanner] Error downloading QR code:', err);
-      toast.error('Failed to download QR code');
+      // Wait 200ms before resuming to prevent race conditions
+      setTimeout(() => {
+        console.log('▶️ [QR Scanner] Resuming scanning');
+        setScannerState('scanning');
+      }, 200);
     }
-  }, [generateQrPayload, userUdi]);
+  }, [showMyQr, scannerState, generateMyQrCode, addDebugLog]);
 
-  // Copy recipient data to clipboard
+  // Reliable Copy with Clipboard API and fallback
   const copyRecipient = useCallback(async () => {
     console.log('📋 [QR Scanner] Copying recipient data...');
+    addDebugLog('Copy Recipient', 'info');
     
     try {
       const payload = generateQrPayload();
-      await navigator.clipboard.writeText(payload);
-      toast.success('Recipient data copied to clipboard');
-      console.log('✅ [QR Scanner] Recipient data copied');
+      
+      // Try modern Clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(payload);
+        toast.success('Copied to clipboard');
+        addDebugLog('Copy Recipient', 'success', 'Clipboard API');
+        console.log('✅ [QR Scanner] Copied via Clipboard API');
+      } else {
+        // Fallback: textarea + execCommand
+        console.log('⚠️ [QR Scanner] Using fallback copy method');
+        const textarea = document.createElement('textarea');
+        textarea.value = payload;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        
+        try {
+          const success = document.execCommand('copy');
+          if (success) {
+            toast.success('Copied to clipboard');
+            addDebugLog('Copy Recipient', 'success', 'execCommand fallback');
+            console.log('✅ [QR Scanner] Copied via execCommand fallback');
+          } else {
+            throw new Error('execCommand failed');
+          }
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      }
       
       // Haptic feedback
       if ('vibrate' in navigator) {
         navigator.vibrate(50);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ [QR Scanner] Error copying to clipboard:', err);
-      toast.error('Failed to copy to clipboard');
+      addDebugLog('Copy Recipient', 'error', err.message);
+      
+      if (err.name === 'NotAllowedError') {
+        toast.error('Clipboard access denied. Please enable clipboard permissions in your browser.');
+      } else {
+        toast.error('Failed to copy to clipboard. Please try manually selecting the text.');
+      }
     }
-  }, [generateQrPayload]);
+  }, [generateQrPayload, addDebugLog]);
 
-  // Share QR code using Web Share API
+  // Reliable Share with Web Share API and fallback
   const shareQrCode = useCallback(async () => {
     console.log('🔗 [QR Scanner] Sharing QR code...');
+    addDebugLog('Share QR', 'info');
     
     try {
       const payload = generateQrPayload();
       
       // Check if Web Share API is available
       if (!navigator.share) {
-        console.warn('⚠️ [QR Scanner] Web Share API not supported');
-        toast.error('Sharing not supported on this device');
+        console.warn('⚠️ [QR Scanner] Web Share API not supported - falling back to copy');
+        addDebugLog('Share QR', 'info', 'Web Share not available, copying instead');
+        await copyRecipient();
+        toast.info('Share not available — recipient data copied to clipboard');
         return;
       }
       
-      // Generate blob for sharing
-      const canvas = document.createElement('canvas');
-      await QRCode.toCanvas(canvas, payload, {
-        width: 512,
-        margin: 4,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        },
-        errorCorrectionLevel: 'H'
+      // Generate blob for sharing (non-blocking)
+      const generateBlob = () => new Promise<Blob | null>((resolve) => {
+        const callback = async () => {
+          try {
+            const canvas = document.createElement('canvas');
+            await QRCode.toCanvas(canvas, payload, {
+              width: 512,
+              margin: 4,
+              color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+              },
+              errorCorrectionLevel: 'H'
+            });
+            
+            canvas.toBlob((blob) => {
+              resolve(blob);
+            }, 'image/png');
+          } catch (err) {
+            console.error('Error generating blob:', err);
+            resolve(null);
+          }
+        };
+        
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(callback);
+        } else {
+          setTimeout(callback, 0);
+        }
       });
       
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          const file = new File([blob], 'pivot-qr-code.png', { type: 'image/png' });
-          
-          try {
-            await navigator.share({
-              title: 'My P!VOT QR Code',
-              text: 'Scan this QR code to send me data',
-              files: [file]
-            });
-            console.log('✅ [QR Scanner] QR code shared successfully');
-          } catch (shareErr: any) {
-            if (shareErr.name !== 'AbortError') {
-              console.error('❌ [QR Scanner] Error sharing:', shareErr);
-              toast.error('Failed to share QR code');
-            }
+      const blob = await generateBlob();
+      
+      if (blob) {
+        const file = new File([blob], 'pivot-qr-code.png', { type: 'image/png' });
+        
+        try {
+          await navigator.share({
+            title: 'My P!VOT QR Code',
+            text: 'Scan this QR code to send me data',
+            files: [file]
+          });
+          console.log('✅ [QR Scanner] QR code shared successfully');
+          addDebugLog('Share QR', 'success');
+        } catch (shareErr: any) {
+          if (shareErr.name === 'AbortError') {
+            console.log('ℹ️ [QR Scanner] Share cancelled by user');
+            addDebugLog('Share QR', 'info', 'Cancelled by user');
+          } else {
+            throw shareErr;
           }
         }
-      }, 'image/png');
-    } catch (err) {
-      console.error('❌ [QR Scanner] Error preparing share:', err);
-      toast.error('Failed to share QR code');
+      } else {
+        // Fallback to text-only share
+        await navigator.share({
+          title: 'My P!VOT Recipient Info',
+          text: payload
+        });
+        addDebugLog('Share QR', 'success', 'Text-only share');
+      }
+    } catch (err: any) {
+      console.error('❌ [QR Scanner] Error sharing:', err);
+      addDebugLog('Share QR', 'error', err.message);
+      
+      // Fallback to copy
+      console.log('⚠️ [QR Scanner] Share failed, falling back to copy');
+      await copyRecipient();
+      toast.info('Share not available — recipient data copied to clipboard');
     }
-  }, [generateQrPayload]);
+  }, [generateQrPayload, copyRecipient, addDebugLog]);
+
+  // Reliable Download (PNG with async blob)
+  const downloadQrCode = useCallback(async () => {
+    console.log('💾 [QR Scanner] Downloading QR code...');
+    addDebugLog('Download QR', 'info');
+    
+    try {
+      const payload = generateQrPayload();
+      
+      // Generate high-res QR code (non-blocking)
+      const generateCanvas = () => new Promise<HTMLCanvasElement>((resolve, reject) => {
+        const callback = async () => {
+          try {
+            // Reuse canvas if available
+            let canvas = qrCanvasRef.current;
+            if (!canvas) {
+              canvas = document.createElement('canvas');
+              qrCanvasRef.current = canvas;
+            }
+            
+            await QRCode.toCanvas(canvas, payload, {
+              width: 512,
+              margin: 4,
+              color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+              },
+              errorCorrectionLevel: 'H'
+            });
+            
+            resolve(canvas);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(callback);
+        } else {
+          setTimeout(callback, 0);
+        }
+      });
+      
+      const canvas = await generateCanvas();
+      
+      // Convert to blob asynchronously
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `pivot-qr-${userUdi || userPhone || 'code'}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // Revoke object URL to free memory
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+            console.log('🧹 [QR Scanner] Object URL revoked');
+          }, 100);
+          
+          toast.success('QR downloaded');
+          addDebugLog('Download QR', 'success');
+          console.log('✅ [QR Scanner] QR code downloaded');
+        }
+      }, 'image/png');
+    } catch (err: any) {
+      console.error('❌ [QR Scanner] Error downloading QR code:', err);
+      addDebugLog('Download QR', 'error', err.message);
+      toast.error('Failed to download QR code');
+    }
+  }, [generateQrPayload, userUdi, userPhone, addDebugLog]);
 
   // Start camera scanning with comprehensive error handling
   const startScanning = async () => {
@@ -414,13 +574,11 @@ export function QrScanner({
       setTorchReady(false);
       setInitializingCamera(true);
       
-      // Verify camera support again
       const supportCheck = checkCameraSupport();
       if (!supportCheck.supported) {
         throw new Error(supportCheck.reason || 'Camera not supported');
       }
       
-      // Initialize Html5Qrcode if not already done
       if (!html5QrCodeRef.current) {
         console.log('🔧 [QR Scanner] Initializing Html5Qrcode instance...');
         html5QrCodeRef.current = new Html5Qrcode("qr-reader");
@@ -428,7 +586,6 @@ export function QrScanner({
 
       const scanner = html5QrCodeRef.current;
       
-      // Check if already scanning
       const currentState = scanner.getState();
       console.log(`📊 [QR Scanner] Current scanner state: ${currentState}`);
       
@@ -456,37 +613,34 @@ export function QrScanner({
         cameraId,
         config,
         (decodedText, decodedResult) => {
-          console.log('✅ [QR Scanner] QR code decoded:', decodedText);
-          handleScanSuccess(decodedText, decodedResult);
+          // Only process if in scanning state
+          if (scannerState === 'scanning') {
+            console.log('✅ [QR Scanner] QR code decoded:', decodedText);
+            handleScanSuccess(decodedText, decodedResult);
+          }
         },
         (errorMessage) => {
           // Scanning errors are normal during frame processing
-          // Only log periodically to avoid spam
         }
       );
 
       console.log('✅ [QR Scanner] Camera started successfully');
       setScanning(true);
+      setScannerState('scanning');
       setInitializingCamera(false);
-      retryCountRef.current = 0; // Reset retry counter on success
+      retryCountRef.current = 0;
+      addDebugLog('Start Camera', 'success');
       
-      // Check for torch support after a short delay to ensure video track is ready
       setTimeout(() => {
         checkTorchSupport();
       }, 500);
       
     } catch (err: any) {
       console.error('❌ [QR Scanner] Error starting camera:', err);
-      console.error('Error details:', {
-        name: err.name,
-        message: err.message,
-        code: err.code,
-        constraint: err.constraint
-      });
+      addDebugLog('Start Camera', 'error', err.message);
       
       setInitializingCamera(false);
       
-      // Detailed error handling with specific messages
       if (err.name === 'NotAllowedError' || err.message?.includes('Permission')) {
         console.error('🚫 [QR Scanner] Permission denied by user');
         setPermissionDenied(true);
@@ -528,9 +682,9 @@ export function QrScanner({
       }
       
       setScanning(false);
+      setScannerState('stopped');
       retryCountRef.current++;
       
-      // Auto-suggest upload after 2 failed attempts
       if (retryCountRef.current >= 2) {
         console.log('💡 [QR Scanner] Multiple failures, suggesting upload option');
         toast.info('Having trouble with the camera?', {
@@ -550,7 +704,6 @@ export function QrScanner({
       
       if (!videoElement || !videoElement.srcObject) {
         console.warn('⚠️ [QR Scanner] Video element not ready');
-        // Retry up to 3 times with delays
         if (retryCount < 3) {
           setTimeout(() => checkTorchSupport(retryCount + 1), 300);
         } else {
@@ -580,7 +733,6 @@ export function QrScanner({
         enabled: track.enabled
       });
       
-      // Check capabilities
       const capabilities = track.getCapabilities() as any;
       console.log('🔧 [QR Scanner] Track capabilities:', capabilities);
       
@@ -605,7 +757,6 @@ export function QrScanner({
   const toggleTorch = useCallback(async () => {
     console.log(`🔦 [QR Scanner] Toggle torch requested (current state: ${torchEnabled})`);
     
-    // Prevent rapid toggling
     if (torchToggleTimeoutRef.current) {
       console.warn('⚠️ [QR Scanner] Torch toggle debounced (too rapid)');
       return;
@@ -629,28 +780,22 @@ export function QrScanner({
     console.log(`🔦 [QR Scanner] Attempting to set torch to: ${newTorchState}`);
 
     try {
-      // Apply torch constraint
       await videoTrackRef.current.applyConstraints({
         advanced: [{ torch: newTorchState } as any]
       });
       
       setTorchEnabled(newTorchState);
       console.log(`✅ [QR Scanner] Torch ${newTorchState ? 'enabled' : 'disabled'} successfully`);
+      addDebugLog('Toggle Torch', 'success', newTorchState ? 'ON' : 'OFF');
       
-      // Haptic feedback
       if ('vibrate' in navigator) {
         navigator.vibrate(50);
       }
       
     } catch (err: any) {
       console.error('❌ [QR Scanner] Error toggling torch:', err);
-      console.error('Error details:', {
-        name: err.name,
-        message: err.message,
-        constraint: err.constraint
-      });
+      addDebugLog('Toggle Torch', 'error', err.message);
       
-      // Provide specific error feedback
       if (err.name === 'NotSupportedError' || err.name === 'OverconstrainedError') {
         console.error('🚫 [QR Scanner] Torch constraint not supported');
         toast.error('Flashlight not available on this device');
@@ -661,12 +806,11 @@ export function QrScanner({
         });
       }
     } finally {
-      // Debounce: prevent rapid toggling for 300ms
       torchToggleTimeoutRef.current = setTimeout(() => {
         torchToggleTimeoutRef.current = null;
       }, 300);
     }
-  }, [torchEnabled, torchSupported]);
+  }, [torchEnabled, torchSupported, addDebugLog]);
 
   // Switch camera
   const switchCamera = async () => {
@@ -679,7 +823,6 @@ export function QrScanner({
     }
 
     try {
-      // Turn off torch before switching
       if (torchEnabled && videoTrackRef.current) {
         console.log('🔦 [QR Scanner] Disabling torch before camera switch');
         try {
@@ -696,7 +839,6 @@ export function QrScanner({
       setCurrentCameraIndex(nextIndex);
       console.log(`📸 [QR Scanner] Switching to camera: ${cameras[nextIndex].label}`);
       
-      // Wait a bit before starting with new camera
       setTimeout(() => {
         startScanning();
       }, 500);
@@ -713,7 +855,6 @@ export function QrScanner({
     console.log('🛑 [QR Scanner] Stopping scanner...');
     
     try {
-      // Turn off torch first if enabled
       if (torchEnabled && videoTrackRef.current) {
         try {
           await videoTrackRef.current.applyConstraints({
@@ -725,7 +866,6 @@ export function QrScanner({
         }
       }
 
-      // Stop the scanner
       if (html5QrCodeRef.current) {
         const state = html5QrCodeRef.current.getState();
         console.log(`📊 [QR Scanner] Scanner state before stop: ${state}`);
@@ -736,7 +876,6 @@ export function QrScanner({
         }
       }
       
-      // Release video track
       if (videoTrackRef.current) {
         videoTrackRef.current.stop();
         videoTrackRef.current = null;
@@ -744,6 +883,7 @@ export function QrScanner({
       }
       
       setScanning(false);
+      setScannerState('stopped');
       setTorchEnabled(false);
       setTorchSupported(false);
       setTorchReady(false);
@@ -758,21 +898,17 @@ export function QrScanner({
   // Handle successful scan
   const handleScanSuccess = (decodedText: string, decodedResult: any) => {
     console.log('🎉 [QR Scanner] Scan successful!');
-    console.log('Decoded text:', decodedText);
-    console.log('Decoded result:', decodedResult);
+    addDebugLog('Scan Success', 'success', decodedText.substring(0, 30));
     
     setScannedData(decodedText);
     setScanSuccess(true);
     
-    // Haptic feedback - triple vibration
     if ('vibrate' in navigator) {
       navigator.vibrate([100, 50, 100]);
     }
     
-    // Stop scanning immediately
     stopScanning();
     
-    // Show success animation briefly, then callback
     setTimeout(() => {
       onScanSuccess(decodedText, decodedResult);
       handleClose();
@@ -782,6 +918,7 @@ export function QrScanner({
   // Handle file upload
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     console.log('📤 [QR Scanner] File upload initiated');
+    addDebugLog('File Upload', 'info');
     
     const file = event.target.files?.[0];
     if (!file) {
@@ -795,14 +932,12 @@ export function QrScanner({
       size: file.size
     });
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       console.error('❌ [QR Scanner] Invalid file type:', file.type);
       toast.error('Please select a valid image file');
       return;
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       console.error('❌ [QR Scanner] File too large:', file.size);
       toast.error('Image size too large. Please use an image under 10MB');
@@ -810,7 +945,6 @@ export function QrScanner({
     }
 
     try {
-      // Create preview
       const reader = new FileReader();
       reader.onload = (e) => {
         setUploadedImage(e.target?.result as string);
@@ -820,28 +954,24 @@ export function QrScanner({
 
       console.log('🔍 [QR Scanner] Scanning uploaded file...');
       
-      // Scan the file
       if (!html5QrCodeRef.current) {
         html5QrCodeRef.current = new Html5Qrcode("qr-reader");
       }
 
       const result = await html5QrCodeRef.current.scanFile(file, false);
       console.log('✅ [QR Scanner] File scan successful:', result);
+      addDebugLog('File Upload', 'success', file.name);
       
       handleScanSuccess(result, { file: file.name });
       
     } catch (err: any) {
       console.error('❌ [QR Scanner] Error scanning file:', err);
-      console.error('Error details:', {
-        name: err.name,
-        message: err.message
-      });
+      addDebugLog('File Upload', 'error', err.message);
       
       setUploadedImage(null);
       toast.error('No QR code detected. Try another image or use the camera.');
     }
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -851,7 +981,6 @@ export function QrScanner({
   const handleClose = useCallback(() => {
     console.log('🚪 [QR Scanner] Close requested');
     
-    // Debounce: ignore rapid close clicks within 300ms
     if (isClosing) {
       console.warn('⚠️ [QR Scanner] Close debounced (already closing)');
       return;
@@ -860,25 +989,23 @@ export function QrScanner({
     console.log('🧹 [QR Scanner] Performing cleanup...');
     setIsClosing(true);
 
-    // Clear any pending timeouts
     if (torchToggleTimeoutRef.current) {
       clearTimeout(torchToggleTimeoutRef.current);
       torchToggleTimeoutRef.current = null;
     }
 
-    // Perform full cleanup
     stopScanning();
     setScanSuccess(false);
     setScannedData('');
     setUploadedImage(null);
     setError(null);
     setPermissionDenied(false);
+    setShowMyQr(false);
     retryCountRef.current = 0;
     onOpenChange(false);
 
     console.log('✅ [QR Scanner] Close complete');
 
-    // Reset closing flag after 300ms
     closeDebounceRef.current = setTimeout(() => {
       setIsClosing(false);
     }, 300);
@@ -902,11 +1029,16 @@ export function QrScanner({
     };
   }, [open, handleClose]);
 
-  // Auto-start scanning when dialog opens (but not if in My QR view)
+  // Auto-start or resume scanning based on scanner state
   useEffect(() => {
-    if (open && cameras.length > 0 && !scanning && !permissionDenied && cameraSupported && !showMyQr && !scanningPaused) {
-      console.log('🎬 [QR Scanner] Auto-starting camera...');
-      startScanning();
+    if (open && cameras.length > 0 && cameraSupported && !showMyQr) {
+      if (scannerState === 'stopped' && !scanning && !permissionDenied) {
+        console.log('🎬 [QR Scanner] Auto-starting camera...');
+        startScanning();
+      } else if (scannerState === 'scanning' && !scanning) {
+        console.log('▶️ [QR Scanner] Resuming camera after pause...');
+        startScanning();
+      }
     }
     
     return () => {
@@ -914,7 +1046,7 @@ export function QrScanner({
         stopScanning();
       }
     };
-  }, [open, cameras.length, showMyQr, scanningPaused]);
+  }, [open, cameras.length, showMyQr, scannerState]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -931,6 +1063,9 @@ export function QrScanner({
       if (html5QrCodeRef.current) {
         html5QrCodeRef.current.clear();
       }
+      
+      // Clean up canvas ref
+      qrCanvasRef.current = null;
     };
   }, []);
 
@@ -938,9 +1073,14 @@ export function QrScanner({
     <>
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent 
-          className="max-w-lg w-full p-0 gap-0 overflow-hidden animate-scale-in"
+          className="max-w-lg w-full p-0 gap-0 overflow-hidden"
           onPointerDownOutside={(e) => e.preventDefault()}
           showCloseButton={false}
+          style={{
+            // GPU-accelerated animations
+            transform: 'translateZ(0)',
+            willChange: 'transform, opacity'
+          }}
         >
           {/* Header with single canonical close button */}
           <DialogHeader className="p-6 pb-4 space-y-2">
@@ -974,11 +1114,23 @@ export function QrScanner({
             </div>
           </DialogHeader>
 
-          {/* Scanner Area OR My QR Code Display */}
+          {/* Scanner Area OR My QR Code Display with smooth transitions */}
           <div className="relative bg-black">
-            <div className="relative aspect-square w-full overflow-hidden">
+            <div 
+              className="relative aspect-square w-full overflow-hidden transition-all duration-300 ease-out"
+              style={{
+                // GPU-accelerated animations
+                transform: 'translateZ(0)',
+                willChange: 'transform, opacity'
+              }}
+            >
               {!showMyQr ? (
-                <>
+                <div 
+                  className="w-full h-full animate-fade-in-up"
+                  style={{
+                    animation: 'fade-in-up 0.3s ease-out'
+                  }}
+                >
                   {/* Existing Scanner UI */}
                   <div id="qr-reader" className="w-full h-full"></div>
                   
@@ -986,16 +1138,11 @@ export function QrScanner({
                   {scanning && !scanSuccess && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="relative w-64 h-64">
-                        {/* Corner borders */}
                         <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-white rounded-tl-2xl"></div>
                         <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-white rounded-tr-2xl"></div>
                         <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-white rounded-bl-2xl"></div>
                         <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-white rounded-br-2xl"></div>
-                        
-                        {/* Scanning line */}
                         <div className="absolute inset-x-0 top-1/2 h-1 bg-gradient-to-r from-transparent via-violet-500 to-transparent animate-pulse"></div>
-                        
-                        {/* Center target */}
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="w-4 h-4 border-2 border-white rounded-full animate-ping"></div>
                         </div>
@@ -1097,10 +1244,16 @@ export function QrScanner({
                       </div>
                     </div>
                   )}
-                </>
+                </div>
               ) : (
-                /* My QR Code Display */
-                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 backdrop-blur-sm flex items-center justify-center p-6">
+                /* My QR Code Display with smooth fade/scale animation */
+                <div 
+                  className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 backdrop-blur-sm flex items-center justify-center p-6 animate-scale-in"
+                  style={{
+                    animation: 'scale-in 0.3s ease-out',
+                    transform: 'translateZ(0)'
+                  }}
+                >
                   <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
                     {/* QR Code Display */}
                     <div className="bg-white p-4 rounded-xl flex items-center justify-center">
@@ -1109,6 +1262,7 @@ export function QrScanner({
                           src={myQrDataUrl} 
                           alt="My QR Code" 
                           className="w-[280px] h-[280px]"
+                          style={{ imageRendering: 'pixelated' }}
                         />
                       ) : (
                         <div className="w-[280px] h-[280px] flex items-center justify-center">
@@ -1145,8 +1299,7 @@ export function QrScanner({
                         size="sm"
                         onClick={() => {
                           setHidePhone(!hidePhone);
-                          // Regenerate QR without phone if hiding
-                          generateMyQrCode();
+                          setTimeout(() => generateMyQrCode(), 0);
                         }}
                         className="w-full text-xs"
                       >
@@ -1170,7 +1323,7 @@ export function QrScanner({
                         variant="outline"
                         size="sm"
                         onClick={downloadQrCode}
-                        className="flex flex-col items-center gap-1 h-auto py-2"
+                        className="flex flex-col items-center gap-1 h-auto py-2 hover-scale"
                         aria-label="Download QR code as PNG"
                       >
                         <Download className="w-4 h-4" />
@@ -1180,7 +1333,7 @@ export function QrScanner({
                         variant="outline"
                         size="sm"
                         onClick={copyRecipient}
-                        className="flex flex-col items-center gap-1 h-auto py-2"
+                        className="flex flex-col items-center gap-1 h-auto py-2 hover-scale"
                         aria-label="Copy recipient data to clipboard"
                       >
                         <Copy className="w-4 h-4" />
@@ -1190,7 +1343,7 @@ export function QrScanner({
                         variant="outline"
                         size="sm"
                         onClick={shareQrCode}
-                        className="flex flex-col items-center gap-1 h-auto py-2"
+                        className="flex flex-col items-center gap-1 h-auto py-2 hover-scale"
                         aria-label="Share QR code"
                       >
                         <Share2 className="w-4 h-4" />
@@ -1310,11 +1463,11 @@ export function QrScanner({
             </div>
           </div>
 
-          {/* Privacy Notice & Status */}
+          {/* Privacy Notice & Status with Debug Toggle */}
           <div className="px-6 py-4 bg-muted/30 border-t">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-              <div className="space-y-1">
+              <div className="space-y-1 flex-1">
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   <strong>Privacy:</strong> {showMyQr 
                     ? 'Your QR code is generated client-side only. No data is sent to any server.'
@@ -1330,7 +1483,7 @@ export function QrScanner({
                     💡 Flashlight not supported — please enable your device torch manually if needed.
                   </p>
                 )}
-                {!showMyQr && scanning && (
+                {!showMyQr && scanning && scannerState === 'scanning' && (
                   <p className="text-xs text-green-600 dark:text-green-400">
                     ✅ Camera active — point at QR code to scan
                   </p>
@@ -1341,7 +1494,46 @@ export function QrScanner({
                   </p>
                 )}
               </div>
+              
+              {/* Debug Panel Toggle */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDebugPanel(!showDebugPanel)}
+                className="h-6 px-2 text-xs"
+                aria-label="Toggle debug panel"
+              >
+                🔍 Debug
+              </Button>
             </div>
+            
+            {/* Debug Panel */}
+            {showDebugPanel && debugLogs.length > 0 && (
+              <div className="mt-3 p-3 bg-black/10 dark:bg-white/5 rounded-lg border border-border">
+                <p className="text-xs font-semibold mb-2 text-muted-foreground">Debug Log (Last 5):</p>
+                <div className="space-y-1">
+                  {debugLogs.map((log, idx) => (
+                    <div key={idx} className="text-xs font-mono flex items-start gap-2">
+                      <span className={cn(
+                        "shrink-0",
+                        log.status === 'success' && "text-green-600 dark:text-green-400",
+                        log.status === 'error' && "text-red-600 dark:text-red-400",
+                        log.status === 'info' && "text-blue-600 dark:text-blue-400"
+                      )}>
+                        {log.status === 'success' ? '✅' : log.status === 'error' ? '❌' : 'ℹ️'}
+                      </span>
+                      <span className="flex-1 text-muted-foreground">
+                        <span className="font-semibold">{log.action}</span>
+                        {log.details && <span className="opacity-70"> - {log.details}</span>}
+                      </span>
+                      <span className="text-xs opacity-50">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
