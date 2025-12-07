@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/contexts/AuthContext';
-import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle, QrCode } from 'lucide-react';
+import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle, QrCode, Smartphone, Laptop, Tablet } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -23,6 +23,16 @@ interface ValidationErrors {
   phone?: string;
   network?: string;
   amount?: string;
+}
+
+// ========== UDI DEVICE INTERFACE ==========
+interface UdiDevice {
+  id: string;
+  name: string;
+  type: 'phone' | 'laptop' | 'tablet';
+  status: 'active' | 'inactive';
+  phoneNumber: string;
+  udiId: string;
 }
 
 // QR Code parsing helper functions
@@ -95,6 +105,35 @@ function validatePhoneNumber(phone: string): boolean {
   return /^\+?\d{10,15}$/.test(cleaned);
 }
 
+// ========== MOCK UDI DEVICES DATA ==========
+// In production, this would come from a backend API or shared state
+const MOCK_UDI_DEVICES: UdiDevice[] = [
+  {
+    id: '1',
+    name: 'iPhone 14 Pro',
+    type: 'phone',
+    status: 'active',
+    phoneNumber: '+1 234 567 8900',
+    udiId: '@sainadh-iphone'
+  },
+  {
+    id: '2',
+    name: 'MacBook Pro',
+    type: 'laptop',
+    status: 'active',
+    phoneNumber: '+1 234 567 8901',
+    udiId: '@sainadh-macbook'
+  },
+  {
+    id: '3',
+    name: 'iPad Air',
+    type: 'tablet',
+    status: 'inactive',
+    phoneNumber: '+1 234 567 8902',
+    udiId: '@sainadh-ipad'
+  }
+];
+
 export function SendDataPage({ onNavigate }: SendDataPageProps) {
   const { user, updateUser } = useAuth();
   const [recipientPhone, setRecipientPhone] = useState('');
@@ -104,6 +143,8 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showQrScanner, setShowQrScanner] = useState(false);
+  // ========== UDI DEVICE SELECTOR STATE ==========
+  const [showUdiDeviceSelector, setShowUdiDeviceSelector] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [transferSuccess, setTransferSuccess] = useState(false);
@@ -298,6 +339,49 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
     setShowQrScanner(false);
   };
 
+  // ========== UDI DEVICE SELECTOR HANDLERS ==========
+  /**
+   * Handles selecting a UDI device from the list
+   * Autofills phone number and UDI identifier
+   */
+  const handleSelectUdiDevice = (device: UdiDevice) => {
+    // Check if device is disabled (inactive)
+    if (device.status === 'inactive') {
+      toast.error(`${device.name} is currently inactive and cannot receive data`);
+      return;
+    }
+
+    // Autofill phone number and UDI
+    setRecipientPhone(device.phoneNumber);
+    setRecipientUdi(device.udiId);
+    
+    // Clear errors
+    setErrors({});
+    setTouched({ phone: false, network: false });
+    
+    // Close dialog
+    setShowUdiDeviceSelector(false);
+    
+    // Show success toast
+    toast.success(`Selected ${device.name} — ${device.phoneNumber} • ${device.udiId}`);
+  };
+
+  /**
+   * Returns the appropriate device icon based on type
+   */
+  const getDeviceIcon = (type: string) => {
+    switch (type) {
+      case 'phone':
+        return Smartphone;
+      case 'laptop':
+        return Laptop;
+      case 'tablet':
+        return Tablet;
+      default:
+        return Smartphone;
+    }
+  };
+
   const isFormValid = !errors.phone && !errors.network && !errors.amount && recipientPhone && network;
 
   return (
@@ -383,6 +467,18 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
                   <span className="text-xs text-muted-foreground">UDI Identifier</span>
                 </div>
               )}
+              
+              {/* ========== "CHOOSE FROM MY UDI DEVICES" BUTTON ========== */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full mt-2 hover-scale"
+                onClick={() => setShowUdiDeviceSelector(true)}
+              >
+                <Smartphone className="w-4 h-4 mr-2" />
+                Choose from My UDI Devices
+              </Button>
             </div>
 
             <div className="space-y-2">
@@ -476,6 +572,103 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
           </Button>
         </CardContent>
       </Card>
+
+      {/* ========== UDI DEVICE SELECTOR DIALOG ========== */}
+      <Dialog open={showUdiDeviceSelector} onOpenChange={setShowUdiDeviceSelector}>
+        <DialogContent className="animate-scale-in max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Choose from My UDI Devices</DialogTitle>
+            <DialogDescription className="text-base">
+              Select a device to autofill recipient information
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-3">
+              {MOCK_UDI_DEVICES.map((device) => {
+                const Icon = getDeviceIcon(device.type);
+                const isDisabled = device.status === 'inactive';
+                
+                return (
+                  <button
+                    key={device.id}
+                    onClick={() => handleSelectUdiDevice(device)}
+                    disabled={isDisabled}
+                    className={cn(
+                      "w-full p-4 rounded-xl border-2 transition-all text-left",
+                      "hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/20",
+                      "focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2",
+                      isDisabled && "opacity-50 cursor-not-allowed hover:border-border hover:bg-transparent",
+                      !isDisabled && "hover-lift"
+                    )}
+                    title={isDisabled ? "This device is inactive and cannot receive data" : `Select ${device.name}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Device Icon */}
+                      <div className={cn(
+                        "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
+                        device.status === 'active' 
+                          ? 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30'
+                          : 'bg-gray-100 dark:bg-gray-800'
+                      )}>
+                        <Icon className={cn(
+                          "w-6 h-6",
+                          device.status === 'active'
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-gray-400'
+                        )} />
+                      </div>
+                      
+                      {/* Device Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-base truncate">{device.name}</h3>
+                          <Badge 
+                            variant={device.status === 'active' ? 'default' : 'secondary'}
+                            className={cn(
+                              "text-xs",
+                              device.status === 'active' && 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                            )}
+                          >
+                            {device.status}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium">Phone:</span> {device.phoneNumber}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium">UDI:</span> <span className="font-mono">{device.udiId}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Disabled tooltip indicator */}
+                    {isDisabled && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-xs text-muted-foreground italic">
+                          ⚠️ Device is inactive and cannot receive data transfers
+                        </p>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowUdiDeviceSelector(false)}
+              className="hover-scale"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
