@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Smartphone, Laptop, Tablet, Wifi, WifiOff, Plus, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, Smartphone, Laptop, Tablet, Wifi, WifiOff, Plus, Trash2, Edit, Search, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +25,59 @@ interface Device {
   lastConnected: string;
   phoneNumber: string;
   udiId: string;
+}
+
+// ========== VALIDATION HELPERS ==========
+
+/**
+ * Validates E.164 phone number format
+ * E.164: +[country code][subscriber number] (max 15 digits)
+ */
+function validateE164PhoneNumber(phone: string): { valid: boolean; error?: string } {
+  const trimmed = phone.trim();
+  
+  // Must start with +
+  if (!trimmed.startsWith('+')) {
+    return { valid: false, error: 'Phone must start with + (E.164 format)' };
+  }
+  
+  // Remove + and check if remaining chars are digits
+  const digits = trimmed.slice(1);
+  if (!/^\d+$/.test(digits)) {
+    return { valid: false, error: 'Phone must contain only digits after +' };
+  }
+  
+  // E.164 allows 1-15 digits after country code
+  if (digits.length < 10 || digits.length > 15) {
+    return { valid: false, error: 'Phone must be 10-15 digits (E.164 format)' };
+  }
+  
+  return { valid: true };
+}
+
+/**
+ * Validates UDI identifier format
+ * Allowed: alphanumeric, hyphens, underscores, @ symbol
+ * Must start with @ or alphanumeric
+ */
+function validateUdiIdentifier(udi: string): { valid: boolean; error?: string } {
+  const trimmed = udi.trim();
+  
+  if (trimmed.length === 0) {
+    return { valid: false, error: 'UDI identifier is required' };
+  }
+  
+  // Must be 3-50 characters
+  if (trimmed.length < 3 || trimmed.length > 50) {
+    return { valid: false, error: 'UDI must be 3-50 characters' };
+  }
+  
+  // Allowed characters: alphanumeric, @, -, _
+  if (!/^[@a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(trimmed)) {
+    return { valid: false, error: 'UDI can only contain letters, numbers, @, -, _' };
+  }
+  
+  return { valid: true };
 }
 
 export function DevicesPage({ onNavigate }: DevicesPageProps) {
@@ -61,6 +114,9 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
     }
   ]);
 
+  // ========== SEARCH STATE ==========
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [showAddDevice, setShowAddDevice] = useState(false);
   const [showEditDevice, setShowEditDevice] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
@@ -68,6 +124,10 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
   const [newDeviceType, setNewDeviceType] = useState<'phone' | 'laptop' | 'tablet'>('phone');
   const [newDevicePhone, setNewDevicePhone] = useState('');
   const [newDeviceUdi, setNewDeviceUdi] = useState('');
+
+  // Validation error states
+  const [phoneError, setPhoneError] = useState('');
+  const [udiError, setUdiError] = useState('');
 
   const getDeviceIcon = (type: string) => {
     switch (type) {
@@ -82,17 +142,37 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
     }
   };
 
+  // ========== REAL-TIME SEARCH FILTER ==========
+  const filteredDevices = devices.filter(device => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase().trim();
+    const phoneMatch = device.phoneNumber.toLowerCase().includes(query);
+    const udiMatch = device.udiId.toLowerCase().includes(query);
+    
+    return phoneMatch || udiMatch;
+  });
+
   const handleAddDevice = () => {
+    // Validate device name
     if (!newDeviceName.trim()) {
       toast.error('Please enter a device name');
       return;
     }
-    if (!newDevicePhone.trim()) {
-      toast.error('Please enter a phone number');
+
+    // Validate phone number (E.164 format)
+    const phoneValidation = validateE164PhoneNumber(newDevicePhone);
+    if (!phoneValidation.valid) {
+      setPhoneError(phoneValidation.error || 'Invalid phone number');
+      toast.error(phoneValidation.error);
       return;
     }
-    if (!newDeviceUdi.trim()) {
-      toast.error('Please enter a UDI identifier');
+
+    // Validate UDI identifier
+    const udiValidation = validateUdiIdentifier(newDeviceUdi);
+    if (!udiValidation.valid) {
+      setUdiError(udiValidation.error || 'Invalid UDI identifier');
+      toast.error(udiValidation.error);
       return;
     }
 
@@ -111,6 +191,8 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
     setNewDeviceType('phone');
     setNewDevicePhone('');
     setNewDeviceUdi('');
+    setPhoneError('');
+    setUdiError('');
     setShowAddDevice(false);
     toast.success(`${newDeviceName} added successfully!`);
   };
@@ -121,22 +203,33 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
     setNewDeviceType(device.type);
     setNewDevicePhone(device.phoneNumber);
     setNewDeviceUdi(device.udiId);
+    setPhoneError('');
+    setUdiError('');
     setShowEditDevice(true);
   };
 
   const handleSaveEdit = () => {
     if (!editingDevice) return;
     
+    // Validate device name
     if (!newDeviceName.trim()) {
       toast.error('Please enter a device name');
       return;
     }
-    if (!newDevicePhone.trim()) {
-      toast.error('Please enter a phone number');
+
+    // Validate phone number (E.164 format)
+    const phoneValidation = validateE164PhoneNumber(newDevicePhone);
+    if (!phoneValidation.valid) {
+      setPhoneError(phoneValidation.error || 'Invalid phone number');
+      toast.error(phoneValidation.error);
       return;
     }
-    if (!newDeviceUdi.trim()) {
-      toast.error('Please enter a UDI identifier');
+
+    // Validate UDI identifier
+    const udiValidation = validateUdiIdentifier(newDeviceUdi);
+    if (!udiValidation.valid) {
+      setUdiError(udiValidation.error || 'Invalid UDI identifier');
+      toast.error(udiValidation.error);
       return;
     }
 
@@ -152,6 +245,8 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
     setNewDeviceType('phone');
     setNewDevicePhone('');
     setNewDeviceUdi('');
+    setPhoneError('');
+    setUdiError('');
     toast.success('Device updated successfully!');
   };
 
@@ -219,32 +314,51 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="device-phone" className="text-base font-semibold">Linked Phone Number *</Label>
+                <Label htmlFor="device-phone" className="text-base font-semibold">Linked Phone Number (E.164) *</Label>
                 <Input
                   id="device-phone"
                   type="tel"
                   placeholder="+1 234 567 8900"
                   value={newDevicePhone}
-                  onChange={(e) => setNewDevicePhone(e.target.value)}
-                  className="h-12 text-base"
+                  onChange={(e) => {
+                    setNewDevicePhone(e.target.value);
+                    setPhoneError('');
+                  }}
+                  className={cn("h-12 text-base", phoneError && "border-destructive")}
                 />
+                {phoneError && (
+                  <p className="text-xs text-destructive">{phoneError}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Format: +[country code][number] (e.g., +12345678900)
+                </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="device-udi" className="text-base font-semibold">UDI Identifier *</Label>
+                <Label htmlFor="device-udi" className="text-base font-semibold">UDI Identifier / @UDI *</Label>
                 <Input
                   id="device-udi"
                   placeholder="@username-device or UDI-12345"
                   value={newDeviceUdi}
-                  onChange={(e) => setNewDeviceUdi(e.target.value)}
-                  className="h-12 text-base"
+                  onChange={(e) => {
+                    setNewDeviceUdi(e.target.value);
+                    setUdiError('');
+                  }}
+                  className={cn("h-12 text-base", udiError && "border-destructive")}
                 />
+                {udiError && (
+                  <p className="text-xs text-destructive">{udiError}</p>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  Use format: @username-device or UDI-XXXXX
+                  Allowed: letters, numbers, @, -, _ (3-50 characters)
                 </p>
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setShowAddDevice(false)} className="hover-scale">
+              <Button variant="outline" onClick={() => {
+                setShowAddDevice(false);
+                setPhoneError('');
+                setUdiError('');
+              }} className="hover-scale">
                 Cancel
               </Button>
               <Button onClick={handleAddDevice} className="hover-scale">Add Device</Button>
@@ -252,6 +366,37 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* ========== SEARCH BAR ========== */}
+      <Card className="animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search by phone number or UDI..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-12 pl-10 pr-10 text-base"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="text-xs text-muted-foreground mt-2">
+              {filteredDevices.length} device{filteredDevices.length !== 1 ? 's' : ''} found
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
@@ -297,108 +442,122 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
       </div>
 
       {/* Devices Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-        {devices.map((device, index) => {
-          const Icon = getDeviceIcon(device.type);
-          return (
-            <Card 
-              key={device.id} 
-              className={cn(
-                "premium-card hover-lift stagger-item group",
-                device.status === 'active' 
-                  ? "border-green-200 dark:border-green-900" 
-                  : ""
-              )}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className={cn(
-                    "w-14 h-14 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110",
-                    device.status === 'active' 
-                      ? 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30' 
-                      : 'bg-gray-100 dark:bg-gray-800'
-                  )}>
-                    <Icon className={cn(
-                      "w-7 h-7",
+      {filteredDevices.length === 0 ? (
+        <Card className="premium-card animate-fade-in-up">
+          <CardContent className="p-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No device found</h3>
+            <p className="text-muted-foreground">
+              Try a different search term or clear the search filter
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+          {filteredDevices.map((device, index) => {
+            const Icon = getDeviceIcon(device.type);
+            return (
+              <Card 
+                key={device.id} 
+                className={cn(
+                  "premium-card hover-lift stagger-item group",
+                  device.status === 'active' 
+                    ? "border-green-200 dark:border-green-900" 
+                    : ""
+                )}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className={cn(
+                      "w-14 h-14 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110",
                       device.status === 'active' 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-gray-400'
-                    )} />
+                        ? 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30' 
+                        : 'bg-gray-100 dark:bg-gray-800'
+                    )}>
+                      <Icon className={cn(
+                        "w-7 h-7",
+                        device.status === 'active' 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-gray-400'
+                      )} />
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge 
+                        variant={device.status === 'active' ? 'default' : 'secondary'} 
+                        className={cn(
+                          "animate-scale-in",
+                          device.status === 'active' 
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+                            : ''
+                        )}
+                      >
+                        {device.status === 'active' ? (
+                          <><Wifi className="w-3 h-3 mr-1" /> Active</>
+                        ) : (
+                          <><WifiOff className="w-3 h-3 mr-1" /> Inactive</>
+                        )}
+                      </Badge>
+                    </div>
+                  </div>
+                  <CardTitle className="mt-4 text-xl">{device.name}</CardTitle>
+                  <CardDescription>Last connected: {device.lastConnected}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground font-medium">Phone Number</span>
+                      <span className="font-semibold">{device.phoneNumber}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground font-medium">UDI</span>
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {device.udiId}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm pt-2">
+                      <span className="text-muted-foreground font-medium">Data Used</span>
+                      <span className="font-bold">{device.dataUsed} GB</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-2.5 rounded-full transition-all duration-500",
+                          device.status === 'active' 
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+                            : 'bg-gray-400'
+                        )}
+                        style={{ width: `${Math.min((device.dataUsed / 10) * 100, 100)}%` }}
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-2">
-                    <Badge 
-                      variant={device.status === 'active' ? 'default' : 'secondary'} 
-                      className={cn(
-                        "animate-scale-in",
-                        device.status === 'active' 
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
-                          : ''
-                      )}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 hover-scale"
+                      onClick={() => handleEditDevice(device)}
                     >
-                      {device.status === 'active' ? (
-                        <><Wifi className="w-3 h-3 mr-1" /> Active</>
-                      ) : (
-                        <><WifiOff className="w-3 h-3 mr-1" /> Inactive</>
-                      )}
-                    </Badge>
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                      onClick={() => handleRemoveDevice(device.id, device.name)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Remove
+                    </Button>
                   </div>
-                </div>
-                <CardTitle className="mt-4 text-xl">{device.name}</CardTitle>
-                <CardDescription>Last connected: {device.lastConnected}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground font-medium">Phone Number</span>
-                    <span className="font-semibold">{device.phoneNumber}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground font-medium">UDI</span>
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {device.udiId}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm pt-2">
-                    <span className="text-muted-foreground font-medium">Data Used</span>
-                    <span className="font-bold">{device.dataUsed} GB</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
-                    <div 
-                      className={cn(
-                        "h-2.5 rounded-full transition-all duration-500",
-                        device.status === 'active' 
-                          ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
-                          : 'bg-gray-400'
-                      )}
-                      style={{ width: `${Math.min((device.dataUsed / 10) * 100, 100)}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 hover-scale"
-                    onClick={() => handleEditDevice(device)}
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                    onClick={() => handleRemoveDevice(device.id, device.name)}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Remove
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Edit Device Dialog */}
       <Dialog open={showEditDevice} onOpenChange={setShowEditDevice}>
@@ -434,31 +593,45 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-device-phone" className="text-base font-semibold">Linked Phone Number *</Label>
+              <Label htmlFor="edit-device-phone" className="text-base font-semibold">Linked Phone Number (E.164) *</Label>
               <Input
                 id="edit-device-phone"
                 type="tel"
                 placeholder="+1 234 567 8900"
                 value={newDevicePhone}
-                onChange={(e) => setNewDevicePhone(e.target.value)}
-                className="h-12 text-base"
+                onChange={(e) => {
+                  setNewDevicePhone(e.target.value);
+                  setPhoneError('');
+                }}
+                className={cn("h-12 text-base", phoneError && "border-destructive")}
               />
+              {phoneError && (
+                <p className="text-xs text-destructive">{phoneError}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-device-udi" className="text-base font-semibold">UDI Identifier *</Label>
+              <Label htmlFor="edit-device-udi" className="text-base font-semibold">UDI Identifier / @UDI *</Label>
               <Input
                 id="edit-device-udi"
                 placeholder="@username-device or UDI-12345"
                 value={newDeviceUdi}
-                onChange={(e) => setNewDeviceUdi(e.target.value)}
-                className="h-12 text-base"
+                onChange={(e) => {
+                  setNewDeviceUdi(e.target.value);
+                  setUdiError('');
+                }}
+                className={cn("h-12 text-base", udiError && "border-destructive")}
               />
+              {udiError && (
+                <p className="text-xs text-destructive">{udiError}</p>
+              )}
             </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => {
               setShowEditDevice(false);
               setEditingDevice(null);
+              setPhoneError('');
+              setUdiError('');
             }} className="hover-scale">
               Cancel
             </Button>
