@@ -8,6 +8,13 @@
       "when": 1765121563791,
       "tag": "0000_slow_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1765187621270,
+      "tag": "0001_shiny_mercury",
+      "breakpoints": true
     }
   ]
 }
