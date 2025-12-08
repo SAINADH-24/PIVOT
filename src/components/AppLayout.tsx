@@ -11,12 +11,15 @@ import {
   User, 
   Menu,
   X,
-  LogOut
+  LogOut,
+  CreditCard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { authClient, useSession } from '@/lib/auth-client';
 import { toast } from 'sonner';
+import { PlanBadge } from '@/components/PlanBadge';
+import { useRouter } from 'next/navigation';
 
 interface AppLayoutProps {
   currentPage: string;
@@ -28,6 +31,7 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { data: session, refetch } = useSession();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const router = useRouter();
 
   const navigation = [
     { name: 'Dashboard', href: 'dashboard', icon: Home },
@@ -60,7 +64,6 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
     localStorage.removeItem("bearer_token");
     toast.success("Successfully logged out!");
     refetch();
-    // Force page refresh to clear all state
     window.location.href = "/";
   };
 
@@ -84,6 +87,9 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
             P!VOT
           </h1>
         </div>
+        <div className="ml-auto">
+          <PlanBadge />
+        </div>
       </div>
 
       {/* Sidebar */}
@@ -100,6 +106,11 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
             <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
               P!VOT
             </h1>
+          </div>
+
+          {/* Plan Badge - Desktop */}
+          <div className="hidden lg:flex justify-center mb-6">
+            <PlanBadge />
           </div>
 
           <nav className="space-y-2 flex-1">
@@ -132,8 +143,26 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
             })}
           </nav>
 
+          {/* Pricing Link */}
+          <div className="mb-4">
+            <button
+              onClick={() => router.push('/pricing')}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border-2 border-violet-200 dark:border-violet-800 hover:border-violet-300 dark:hover:border-violet-700 transition-all duration-200 group hover-lift"
+            >
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                <CreditCard className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-semibold text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+                  Upgrade Plan
+                </p>
+                <p className="text-xs text-muted-foreground">Get more features</p>
+              </div>
+            </button>
+          </div>
+
           {/* User Info & Logout */}
-          <div className="mt-6 pt-6 border-t border-border">
+          <div className="pt-6 border-t border-border">
             <div className="px-4 py-3 mb-3 rounded-xl bg-accent/50">
               <p className="text-sm font-medium text-foreground truncate">
                 {session?.user?.name || 'User'}
