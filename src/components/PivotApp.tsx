@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useSession } from '@/lib/auth-client';
 import { AuthPage } from './AuthPage';
 import { AppLayout } from './AppLayout';
 import { Dashboard } from './Dashboard';
@@ -11,13 +11,25 @@ import { DevicesPage } from './DevicesPage';
 import { WalletPage } from './WalletPage';
 import { HistoryPage } from './HistoryPage';
 import { ProfilePage } from './ProfilePage';
-import { Toaster } from 'sonner';
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
+  const { data: session, isPending } = useSession();
   const [currentPage, setCurrentPage] = useState('dashboard');
 
-  if (!isAuthenticated) {
+  // Show loading state while checking session
+  if (isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-gray-900 dark:via-purple-950 dark:to-violet-950">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth page if not authenticated
+  if (!session?.user) {
     return <AuthPage />;
   }
 
@@ -50,10 +62,5 @@ function AppContent() {
 }
 
 export function PivotApp() {
-  return (
-    <AuthProvider>
-      <AppContent />
-      <Toaster position="top-right" richColors />
-    </AuthProvider>
-  );
+  return <AppContent />;
 }
