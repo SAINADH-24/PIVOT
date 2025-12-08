@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Coins, TrendingUp, Gift, ShoppingBag, Send, Plus } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from '@/lib/auth-client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,7 @@ interface Transaction {
 }
 
 export function WalletPage({ onNavigate }: WalletPageProps) {
-  const { user } = useAuth();
+  const { data: session, isPending } = useSession();
   
   const [transactions] = useState<Transaction[]>([
     {
@@ -63,8 +63,11 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
     { name: 'Platinum', points: 10000, benefits: '15% extra cashback + Priority support', color: 'from-slate-300 to-slate-400' }
   ];
 
-  const currentTier = [...rewardTiers].reverse().find(tier => (user?.pivotPoints || 0) >= tier.points) || rewardTiers[0];
-  const nextTier = rewardTiers.find(tier => tier.points > (user?.pivotPoints || 0));
+  const user = session?.user;
+  const userPivotPoints = user?.pivotPoints || 0;
+
+  const currentTier = [...rewardTiers].reverse().find(tier => userPivotPoints >= tier.points) || rewardTiers[0];
+  const nextTier = rewardTiers.find(tier => tier.points > userPivotPoints);
 
   const redeemOptions = [
     { id: 1, name: 'Data Top-up', points: 100, value: '1 GB', icon: 'data' },
@@ -87,12 +90,34 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
   };
 
   const handleRedeem = (option: typeof redeemOptions[0]) => {
-    if ((user?.pivotPoints || 0) < option.points) {
+    if (userPivotPoints < option.points) {
       toast.error('Insufficient Pivot Points');
       return;
     }
     toast.success(`${option.name} redeemed successfully!`);
   };
+
+  // Show loading state
+  if (isPending) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Pivot Points Wallet</h1>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+        <Card className="premium-card">
+          <CardContent className="p-12 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -118,7 +143,7 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
           <div className="flex items-center justify-between mb-8">
             <div>
               <p className="text-violet-100 mb-2 text-base">Total Balance</p>
-              <h2 className="text-6xl font-bold mb-2">{user?.pivotPoints.toLocaleString()}</h2>
+              <h2 className="text-6xl font-bold mb-2">{userPivotPoints.toLocaleString()}</h2>
               <p className="text-violet-100 text-lg">Pivot Points</p>
             </div>
             <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center animate-pulse-glow">
@@ -160,7 +185,7 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
               {nextTier && (
                 <div className="text-right">
                   <p className="text-sm font-bold">Next: {nextTier.name}</p>
-                  <p className="text-xs text-muted-foreground">{(nextTier.points - (user?.pivotPoints || 0)).toLocaleString()} PP away</p>
+                  <p className="text-xs text-muted-foreground">{(nextTier.points - userPivotPoints).toLocaleString()} PP away</p>
                 </div>
               )}
             </div>
@@ -169,11 +194,11 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
                 <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                   <div 
                     className="h-3 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-500"
-                    style={{ width: `${Math.min(((user?.pivotPoints || 0) / nextTier.points) * 100, 100)}%` }}
+                    style={{ width: `${Math.min((userPivotPoints / nextTier.points) * 100, 100)}%` }}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 font-medium">
-                  {user?.pivotPoints.toLocaleString()} / {nextTier.points.toLocaleString()} PP
+                  {userPivotPoints.toLocaleString()} / {nextTier.points.toLocaleString()} PP
                 </p>
               </div>
             )}
@@ -195,7 +220,7 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
                 key={option.id} 
                 className={cn(
                   "premium-card hover-lift cursor-pointer group stagger-item",
-                  (user?.pivotPoints || 0) < option.points && "opacity-60"
+                  userPivotPoints < option.points && "opacity-60"
                 )}
               >
                 <CardContent className="p-6">
@@ -212,7 +237,7 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
                   <Button 
                     className="w-full hover-lift" 
                     size="default"
-                    disabled={(user?.pivotPoints || 0) < option.points}
+                    disabled={userPivotPoints < option.points}
                     onClick={() => handleRedeem(option)}
                   >
                     Redeem
