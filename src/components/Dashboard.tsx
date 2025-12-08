@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { PlanUsageIndicator } from '@/components/PlanUsageIndicator';
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
@@ -120,6 +121,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           Welcome back, {user?.name}! 👋
         </h1>
         <p className="text-muted-foreground text-lg">Here's your mobile data overview</p>
+      </div>
+
+      {/* Plan Usage Indicator */}
+      <div className="animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+        <PlanUsageIndicator />
       </div>
 
       {/* KPI Cards */}
