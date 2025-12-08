@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { PlanUsageIndicator } from '@/components/PlanUsageIndicator';
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
@@ -136,11 +135,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <p className="text-muted-foreground text-lg">Here's your mobile data overview</p>
       </div>
 
-      {/* Plan Usage Indicator */}
-      <div className="animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
-        <PlanUsageIndicator />
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {kpiCards.map((kpi, index) => (
@@ -174,7 +168,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Quick Actions */}
-      <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+      <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
         <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickActions.map((action, index) => (
@@ -203,7 +197,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* AI Suggested Plans */}
-      <Card className="premium-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+      <Card className="premium-card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
