@@ -4,6 +4,7 @@ import VisualEditsMessenger from "../visual-edits/VisualEditsMessenger";
 import ErrorReporter from "@/components/ErrorReporter";
 import Script from "next/script";
 import { Toaster } from "@/components/ui/sonner";
+import CustomAutumnProvider from "@/lib/autumn-provider";
 
 export const metadata: Metadata = {
   title: "P!VOT - Smart Mobile Data Management",
@@ -29,7 +30,9 @@ export default function RootLayout({
           data-debug="true"
           data-custom-data='{"appName": "YourApp", "version": "1.0.0", "greeting": "hi"}'
         />
-        {children}
+        <CustomAutumnProvider>
+          {children}
+        </CustomAutumnProvider>
         <Toaster position="top-right" richColors />
         <VisualEditsMessenger />
       </body>
