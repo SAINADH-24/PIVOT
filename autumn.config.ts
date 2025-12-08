@@ -145,7 +145,6 @@ export const pro = product({
     }),
     featureItem({
       feature_id: udiDevices.id,
-      included_usage: -1,
     }),
     featureItem({
       feature_id: prioritySpeed.id,
@@ -166,7 +165,6 @@ export const unlimited = product({
     }),
     featureItem({
       feature_id: dataTransfers.id,
-      included_usage: -1,
     }),
     featureItem({
       feature_id: pivotPoints.id,
@@ -178,7 +176,6 @@ export const unlimited = product({
     }),
     featureItem({
       feature_id: udiDevices.id,
-      included_usage: -1,
     }),
     featureItem({
       feature_id: prioritySpeed.id,
