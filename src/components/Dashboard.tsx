@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from '@/lib/auth-client';
 import { 
   Database, 
   Coins, 
@@ -26,12 +26,25 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-  const { user } = useAuth();
+  const { data: session, isPending } = useSession();
+
+  if (isPending) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const userName = session?.user?.name || 'User';
 
   const kpiCards = [
     {
       title: 'Data Balance',
-      value: `${user?.dataBalance.toFixed(1)} GB`,
+      value: '12.5 GB',
       icon: Database,
       color: 'from-blue-500 to-cyan-500',
       change: '+2.5 GB this week',
@@ -39,7 +52,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     },
     {
       title: 'Pivot Points',
-      value: user?.pivotPoints.toLocaleString() || '0',
+      value: '1,250',
       icon: Coins,
       color: 'from-violet-500 to-purple-500',
       change: '+150 points',
@@ -118,7 +131,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       {/* Welcome Section */}
       <div className="animate-fade-in-up">
         <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-          Welcome back, {user?.name}! 👋
+          Welcome back, {userName}! 👋
         </h1>
         <p className="text-muted-foreground text-lg">Here's your mobile data overview</p>
       </div>
