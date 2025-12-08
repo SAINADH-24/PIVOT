@@ -8,12 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { useAuth } from '@/contexts/AuthContext';
-import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle, QrCode, Smartphone, Laptop, Tablet } from 'lucide-react';
+import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle, QrCode, Smartphone, Laptop, Tablet, Lock } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { QrScanner } from '@/components/QrScanner';
+import { useCustomer } from 'autumn-js/react';
+import { useRouter } from 'next/navigation';
 
 interface SendDataPageProps {
   onNavigate: (page: string) => void;
@@ -136,6 +138,8 @@ const MOCK_UDI_DEVICES: UdiDevice[] = [
 
 export function SendDataPage({ onNavigate }: SendDataPageProps) {
   const { user, updateUser } = useAuth();
+  const { customer, check, track, refetch, isLoading: isCustomerLoading } = useCustomer();
+  const router = useRouter();
   const [recipientPhone, setRecipientPhone] = useState('');
   const [recipientUdi, setRecipientUdi] = useState('');
   const [network, setNetwork] = useState('');
@@ -216,12 +220,31 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
     setErrors(prev => ({ ...prev, amount: validateAmount(value[0]) }));
   };
 
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
     setTouched({ phone: true, network: true });
     if (!validateForm()) {
       toast.error('Please fix all errors before submitting');
       return;
     }
+    
+    // FEATURE GATE: Check data transfer allowance
+    const { data } = await check({ 
+      featureId: 'data_transfers', 
+      requiredBalance: dataAmount[0] 
+    });
+    
+    if (!data.allowed) {
+      // Show upgrade prompt
+      toast.error('Data transfer limit reached. Upgrade your plan for more transfers!', {
+        action: {
+          label: 'Upgrade',
+          onClick: () => router.push('/pricing')
+        },
+        duration: 5000
+      });
+      return;
+    }
+    
     setShowConfirmation(true);
   };
 
@@ -259,6 +282,16 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
       dataBalance: user.dataBalance - dataAmount[0],
       pivotPoints: user.pivotPoints - pivotPointsFee
     });
+    
+    // FEATURE GATE: Track data transfer usage
+    await track({ 
+      featureId: 'data_transfers', 
+      value: dataAmount[0],
+      idempotencyKey: `data-transfer-${Date.now()}`
+    });
+    
+    // Refresh customer data to update usage displays
+    await refetch();
 
     setShowPinDialog(false);
     setTransferSuccess(true);
@@ -384,6 +417,34 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
 
   const isFormValid = !errors.phone && !errors.network && !errors.amount && recipientPhone && network;
 
+  // Show loading while checking customer data
+  if (isCustomerLoading) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Send Data</h1>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+        <Card className="premium-card">
+          <CardContent className="p-12 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Get usage info for display
+  const dataTransferFeature = customer?.features?.['data_transfers'];
+  const remainingTransfers = dataTransferFeature?.balance || 0;
+  const totalTransfers = dataTransferFeature?.included_usage || 0;
+  const isUnlimited = !dataTransferFeature || dataTransferFeature.unlimited;
+
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-4 animate-fade-in-up">
@@ -403,8 +464,17 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
 
       <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
         <CardHeader>
-          <CardTitle>Peer-to-Peer Data Transfer</CardTitle>
-          <CardDescription>Send mobile data instantly using Pivot Points</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Peer-to-Peer Data Transfer</CardTitle>
+              <CardDescription>Send mobile data instantly using Pivot Points</CardDescription>
+            </div>
+            {!isUnlimited && (
+              <Badge variant="secondary" className="font-mono">
+                {remainingTransfers}/{totalTransfers} GB
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Current Balance */}
