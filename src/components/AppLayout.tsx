@@ -10,10 +10,13 @@ import {
   History, 
   User, 
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { authClient, useSession } from '@/lib/auth-client';
+import { toast } from 'sonner';
 
 interface AppLayoutProps {
   currentPage: string;
@@ -23,6 +26,8 @@ interface AppLayoutProps {
 
 export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { data: session, refetch } = useSession();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const navigation = [
     { name: 'Dashboard', href: 'dashboard', icon: Home },
@@ -33,6 +38,31 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
     { name: 'History', href: 'history', icon: History },
     { name: 'Profile', href: 'profile', icon: User },
   ];
+
+  const handleSignOut = async () => {
+    setIsLoggingOut(true);
+    const token = localStorage.getItem("bearer_token");
+
+    const { error } = await authClient.signOut({
+      fetchOptions: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+
+    if (error?.code) {
+      toast.error("Failed to logout. Please try again.");
+      setIsLoggingOut(false);
+      return;
+    }
+
+    localStorage.removeItem("bearer_token");
+    toast.success("Successfully logged out!");
+    refetch();
+    // Force page refresh to clear all state
+    window.location.href = "/";
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,11 +88,11 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed top-0 left-0 h-full w-64 bg-sidebar/95 backdrop-blur-xl border-r shadow-xl transition-transform duration-300 ease-in-out z-40",
+        "fixed top-0 left-0 h-full w-64 bg-sidebar/95 backdrop-blur-xl border-r shadow-xl transition-transform duration-300 ease-in-out z-40 flex flex-col",
         "lg:translate-x-0",
         sidebarOpen ? "translate-x-0 animate-slide-in-left" : "-translate-x-full"
       )}>
-        <div className="p-6">
+        <div className="p-6 flex-1 flex flex-col">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow hover-scale">
               <Smartphone className="w-6 h-6 text-white" />
@@ -72,7 +102,7 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
             </h1>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-2 flex-1">
             {navigation.map((item, index) => {
               const Icon = item.icon;
               const isActive = currentPage === item.href;
@@ -101,6 +131,29 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
               );
             })}
           </nav>
+
+          {/* User Info & Logout */}
+          <div className="mt-6 pt-6 border-t border-border">
+            <div className="px-4 py-3 mb-3 rounded-xl bg-accent/50">
+              <p className="text-sm font-medium text-foreground truncate">
+                {session?.user?.name || 'User'}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {session?.user?.email || ''}
+              </p>
+            </div>
+            <Button
+              onClick={handleSignOut}
+              disabled={isLoggingOut}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive transition-all duration-200 group"
+              variant="ghost"
+            >
+              <LogOut className="w-5 h-5 transition-transform group-hover:scale-110" />
+              <span className="font-medium">
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </span>
+            </Button>
+          </div>
         </div>
       </aside>
 
