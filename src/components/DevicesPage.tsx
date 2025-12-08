@@ -4,13 +4,15 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Smartphone, Laptop, Tablet, Wifi, WifiOff, Plus, Trash2, Edit, Search, X } from 'lucide-react';
+import { ArrowLeft, Smartphone, Laptop, Tablet, Wifi, WifiOff, Plus, Trash2, Edit, Search, X, Lock } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useCustomer } from 'autumn-js/react';
+import { useRouter } from 'next/navigation';
 
 interface DevicesPageProps {
   onNavigate: (page: string) => void;
@@ -81,6 +83,9 @@ function validateUdiIdentifier(udi: string): { valid: boolean; error?: string } 
 }
 
 export function DevicesPage({ onNavigate }: DevicesPageProps) {
+  const { customer, check, isLoading: isCustomerLoading } = useCustomer();
+  const router = useRouter();
+  
   const [devices, setDevices] = useState<Device[]>([
     {
       id: '1',
@@ -129,6 +134,11 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
   const [phoneError, setPhoneError] = useState('');
   const [udiError, setUdiError] = useState('');
 
+  // Get device limit from customer data
+  const udiDevicesFeature = customer?.features?.['udi_devices'];
+  const deviceLimit = udiDevicesFeature?.included_usage || 3;
+  const isUnlimitedDevices = !udiDevicesFeature || udiDevicesFeature.unlimited;
+
   const getDeviceIcon = (type: string) => {
     switch (type) {
       case 'phone':
@@ -153,10 +163,22 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
     return phoneMatch || udiMatch;
   });
 
-  const handleAddDevice = () => {
+  const handleAddDevice = async () => {
     // Validate device name
     if (!newDeviceName.trim()) {
       toast.error('Please enter a device name');
+      return;
+    }
+
+    // FEATURE GATE: Check device limit
+    if (!isUnlimitedDevices && devices.length >= deviceLimit) {
+      toast.error(`Device limit reached (${deviceLimit} devices). Upgrade your plan for more devices!`, {
+        action: {
+          label: 'Upgrade',
+          onClick: () => router.push('/pricing')
+        },
+        duration: 5000
+      });
       return;
     }
 
@@ -258,6 +280,30 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
   const totalDataUsed = devices.reduce((acc, device) => acc + device.dataUsed, 0);
   const activeDevices = devices.filter(d => d.status === 'active').length;
 
+  // Show loading state
+  if (isCustomerLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">UDI Devices</h1>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+        <Card className="premium-card">
+          <CardContent className="p-12 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const canAddDevice = isUnlimitedDevices || devices.length < deviceLimit;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
@@ -273,13 +319,32 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
           <div>
             <h1 className="text-3xl font-bold">UDI Devices</h1>
             <p className="text-muted-foreground">Unified Device Interface - Manage your connected devices</p>
+            {!isUnlimitedDevices && (
+              <p className="text-sm text-muted-foreground mt-1">
+                <Badge variant="secondary" className="font-mono text-xs">
+                  {devices.length}/{deviceLimit} devices
+                </Badge>
+              </p>
+            )}
           </div>
         </div>
         <Dialog open={showAddDevice} onOpenChange={setShowAddDevice}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-md hover-lift">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Device
+            <Button 
+              className="bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-md hover-lift"
+              disabled={!canAddDevice}
+            >
+              {canAddDevice ? (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Device
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4 mr-2" />
+                  Limit Reached
+                </>
+              )}
             </Button>
           </DialogTrigger>
           <DialogContent className="animate-scale-in">
