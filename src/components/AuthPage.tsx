@@ -6,17 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/contexts/AuthContext';
+import { authClient } from '@/lib/auth-client';
 import { Smartphone, Zap, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 export function AuthPage() {
-  const { login, signup } = useAuth();
+  const router = useRouter();
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [loginRememberMe, setLoginRememberMe] = useState(false);
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,23 +30,71 @@ export function AuthPage() {
     setError('');
     setIsLoading(true);
     
-    const success = await login(loginEmail, loginPassword);
-    if (!success) {
-      setError('Invalid credentials. Please try again.');
+    const { data, error: authError } = await authClient.signIn.email({
+      email: loginEmail,
+      password: loginPassword,
+      rememberMe: loginRememberMe,
+      callbackURL: "/"
+    });
+
+    if (authError?.code) {
+      setError('Invalid email or password. Please make sure you have already registered an account and try again.');
+      setIsLoading(false);
+      return;
     }
+    
+    toast.success('Successfully logged in!');
     setIsLoading(false);
+    // Force refresh to update session
+    window.location.href = "/";
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validate password confirmation
+    if (signupPassword !== signupConfirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    // Validate password length
+    if (signupPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
     setIsLoading(true);
     
-    const success = await signup(signupName, signupEmail, signupPassword, signupPhone);
-    if (!success) {
-      setError('Signup failed. Please check your details.');
+    const { data, error: authError } = await authClient.signUp.email({
+      email: signupEmail,
+      name: signupName,
+      password: signupPassword,
+    });
+
+    if (authError?.code) {
+      const errorMap: Record<string, string> = {
+        USER_ALREADY_EXISTS: "Email already registered. Please login instead."
+      };
+      setError(errorMap[authError.code] || "Registration failed. Please try again.");
+      setIsLoading(false);
+      return;
     }
+    
+    toast.success("Account created! Please login to continue.");
     setIsLoading(false);
+    
+    // Switch to login tab and clear form
+    setSignupName('');
+    setSignupEmail('');
+    setSignupPassword('');
+    setSignupConfirmPassword('');
+    setSignupPhone('');
+    
+    // Trigger tab switch - need to find tab trigger and click it
+    const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+    if (loginTab) loginTab.click();
   };
 
   return (
@@ -81,6 +133,7 @@ export function AuthPage() {
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       required
+                      autoComplete="off"
                       className="h-12 text-base"
                     />
                   </div>
@@ -93,8 +146,21 @@ export function AuthPage() {
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       required
+                      autoComplete="off"
                       className="h-12 text-base"
                     />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="remember-me"
+                      type="checkbox"
+                      checked={loginRememberMe}
+                      onChange={(e) => setLoginRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300"
+                    />
+                    <Label htmlFor="remember-me" className="text-sm font-medium cursor-pointer">
+                      Remember me
+                    </Label>
                   </div>
                   {error && (
                     <div className={cn(
@@ -111,6 +177,19 @@ export function AuthPage() {
                   >
                     {isLoading ? 'Logging in...' : 'Login'}
                   </Button>
+                  <p className="text-sm text-center text-muted-foreground">
+                    Don't have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const signupTab = document.querySelector('[value="signup"]') as HTMLElement;
+                        if (signupTab) signupTab.click();
+                      }}
+                      className="text-violet-600 hover:text-violet-700 font-semibold"
+                    >
+                      Sign up
+                    </button>
+                  </p>
                 </form>
               </TabsContent>
               
@@ -125,6 +204,7 @@ export function AuthPage() {
                       value={signupName}
                       onChange={(e) => setSignupName(e.target.value)}
                       required
+                      autoComplete="off"
                       className="h-12 text-base"
                     />
                   </div>
@@ -137,18 +217,7 @@ export function AuthPage() {
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
                       required
-                      className="h-12 text-base"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-phone" className="text-base font-semibold">Phone Number</Label>
-                    <Input
-                      id="signup-phone"
-                      type="tel"
-                      placeholder="+1 234 567 8900"
-                      value={signupPhone}
-                      onChange={(e) => setSignupPhone(e.target.value)}
-                      required
+                      autoComplete="off"
                       className="h-12 text-base"
                     />
                   </div>
@@ -157,10 +226,24 @@ export function AuthPage() {
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="Create a password"
+                      placeholder="Create a password (min. 8 characters)"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
                       required
+                      autoComplete="off"
+                      className="h-12 text-base"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-confirm-password" className="text-base font-semibold">Confirm Password</Label>
+                    <Input
+                      id="signup-confirm-password"
+                      type="password"
+                      placeholder="Confirm your password"
+                      value={signupConfirmPassword}
+                      onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                      required
+                      autoComplete="off"
                       className="h-12 text-base"
                     />
                   </div>
@@ -179,6 +262,19 @@ export function AuthPage() {
                   >
                     {isLoading ? 'Creating account...' : 'Sign Up'}
                   </Button>
+                  <p className="text-sm text-center text-muted-foreground">
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+                        if (loginTab) loginTab.click();
+                      }}
+                      className="text-violet-600 hover:text-violet-700 font-semibold"
+                    >
+                      Login
+                    </button>
+                  </p>
                 </form>
               </TabsContent>
             </Tabs>
@@ -186,12 +282,9 @@ export function AuthPage() {
         </Card>
         
         <div className="mt-8 text-center animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <p className="text-sm text-muted-foreground flex items-center justify-center gap-2 mb-2">
+          <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
             <Zap className="w-4 h-4 text-violet-500" />
             Powered by AI • Seamless Data Transfer
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Demo mode - Use any credentials to login
           </p>
         </div>
       </div>
