@@ -7,11 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Sparkles, Zap, TrendingUp, Wifi, Video, Music, Gamepad2 } from 'lucide-react';
+import { ArrowLeft, Sparkles, Zap, TrendingUp, Wifi, Video, Music, Gamepad2, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useCustomer } from 'autumn-js/react';
+import { useRouter } from 'next/navigation';
 
 interface RechargePageProps {
   onNavigate: (page: string) => void;
@@ -115,6 +117,9 @@ const analyzeUsageAndSuggest = (history: UsageDay[]): AISuggestion => {
 };
 
 export function RechargePage({ onNavigate }: RechargePageProps) {
+  const { customer, check, isLoading: isCustomerLoading } = useCustomer();
+  const router = useRouter();
+  
   const [validity, setValidity] = useState('28');
   const [dataAmount, setDataAmount] = useState([10]);
   const [dataMode, setDataMode] = useState('4g');
@@ -137,6 +142,14 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
     const suggestion = analyzeUsageAndSuggest(history);
     setAiSuggestion(suggestion);
   }, []);
+
+  // Check feature access
+  const hasCustomBuilder = customer?.products?.some(p => 
+    p.id !== 'free' && ['starter', 'pro', 'unlimited'].includes(p.id)
+  );
+  const hasAISuggestions = customer?.products?.some(p => 
+    ['pro', 'unlimited'].includes(p.id)
+  );
 
   // Cost calculation
   const baseCost = dataAmount[0] * 15; // ₹15 per GB
@@ -162,6 +175,18 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
   const applyAISuggestion = () => {
     if (!aiSuggestion) return;
     
+    // FEATURE GATE: Check AI suggestions access
+    if (!hasAISuggestions) {
+      toast.error('AI suggestions are available on Pro and Unlimited plans only!', {
+        action: {
+          label: 'Upgrade to Pro',
+          onClick: () => router.push('/pricing')
+        },
+        duration: 5000
+      });
+      return;
+    }
+    
     setValidity(aiSuggestion.validity);
     setDataAmount([aiSuggestion.dataAmount]);
     setDataMode(aiSuggestion.dataMode);
@@ -172,10 +197,22 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
     toast.success('AI suggested plan applied!');
   };
 
-  const handleActivatePlan = () => {
+  const handleActivatePlan = async () => {
     // Validate data amount
     if (dataAmount[0] <= 0) {
       toast.error('Data amount must be greater than 0');
+      return;
+    }
+
+    // FEATURE GATE: Check custom recharge builder access
+    if (!hasCustomBuilder) {
+      toast.error('Custom recharge builder is a premium feature. Upgrade to access it!', {
+        action: {
+          label: 'Upgrade',
+          onClick: () => router.push('/pricing')
+        },
+        duration: 5000
+      });
       return;
     }
 
@@ -209,6 +246,28 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
     }
   };
 
+  // Show loading state
+  if (isCustomerLoading) {
+    return (
+      <div className="space-y-6 max-w-7xl mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Recharge Builder</h1>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+        <Card className="premium-card">
+          <CardContent className="p-12 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center gap-4 animate-fade-in-up">
@@ -231,7 +290,29 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
         <div className="lg:col-span-2 space-y-6">
           {/* AI Suggestion Banner */}
           {aiSuggestion && (
-            <Card className="bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-violet-950/30 dark:via-purple-950/30 dark:to-fuchsia-950/30 border-violet-200 dark:border-violet-800 premium-card hover-lift animate-fade-in-up">
+            <Card className={cn(
+              "premium-card hover-lift animate-fade-in-up",
+              !hasAISuggestions && "opacity-60 relative overflow-hidden"
+            )}>
+              {!hasAISuggestions && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                  <div className="text-center space-y-3 p-6">
+                    <Lock className="w-12 h-12 mx-auto text-muted-foreground" />
+                    <div>
+                      <h3 className="font-bold text-lg mb-1">Pro Feature</h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        AI suggestions are available on Pro and Unlimited plans
+                      </p>
+                      <Button 
+                        onClick={() => router.push('/pricing')}
+                        className="bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700"
+                      >
+                        Upgrade to Pro
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shrink-0 shadow-lg animate-pulse-glow">
@@ -275,8 +356,18 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
           {/* Plan Configuration */}
           <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
             <CardHeader>
-              <CardTitle>Plan Configuration</CardTitle>
-              <CardDescription>Customize your recharge plan</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Plan Configuration</CardTitle>
+                  <CardDescription>Customize your recharge plan</CardDescription>
+                </div>
+                {!hasCustomBuilder && (
+                  <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                    <Lock className="w-3 h-3 mr-1" />
+                    Premium
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Validity */}
@@ -497,9 +588,19 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
                 className="w-full h-12 text-base font-semibold bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-lg hover-lift" 
                 size="lg"
                 onClick={handleActivatePlan}
+                disabled={!hasCustomBuilder}
               >
-                <Zap className="w-5 h-5 mr-2" />
-                Activate Plan
+                {hasCustomBuilder ? (
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Activate Plan
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-5 h-5 mr-2" />
+                    Upgrade to Unlock
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
