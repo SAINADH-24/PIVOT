@@ -40,71 +40,71 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   const userName = session?.user?.name || 'User';
 
-  const kpiCards = [
-    {
-      title: 'Data Balance',
-      value: '12.5 GB',
-      icon: Database,
-      color: 'from-blue-500 to-cyan-500',
-      change: '+2.5 GB this week',
-      bgGradient: 'from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20'
-    },
-    {
-      title: 'Pivot Points',
-      value: '1,250',
-      icon: Coins,
-      color: 'from-violet-500 to-purple-500',
-      change: '+150 points',
-      bgGradient: 'from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20'
-    },
-    {
-      title: 'Active Devices',
-      value: '3',
-      icon: Smartphone,
-      color: 'from-emerald-500 to-teal-500',
-      change: '2 connected',
-      bgGradient: 'from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20'
-    },
-    {
-      title: 'Total Transfers',
-      value: '47',
-      icon: ArrowRightLeft,
-      color: 'from-orange-500 to-pink-500',
-      change: '12 this month',
-      bgGradient: 'from-orange-50 to-pink-50 dark:from-orange-950/20 dark:to-pink-950/20'
-    }
-  ];
+    const kpiCards = [
+      {
+        title: 'Data Balance',
+        value: '12.5 GB',
+        icon: Database,
+        color: 'from-blue-600 to-blue-400',
+        change: '+2.5 GB this week',
+        bgGradient: 'from-blue-50 to-white dark:from-blue-950/20 dark:to-blue-900/10'
+      },
+      {
+        title: 'Pivot Points',
+        value: '1,250',
+        icon: Coins,
+        color: 'from-violet-600 to-violet-400',
+        change: '+150 points',
+        bgGradient: 'from-violet-50 to-white dark:from-violet-950/20 dark:to-violet-900/10'
+      },
+      {
+        title: 'Active Devices',
+        value: '3',
+        icon: Smartphone,
+        color: 'from-cyan-600 to-cyan-400',
+        change: '2 connected',
+        bgGradient: 'from-cyan-50 to-white dark:from-cyan-950/20 dark:to-cyan-900/10'
+      },
+      {
+        title: 'Total Transfers',
+        value: '47',
+        icon: ArrowRightLeft,
+        color: 'from-blue-700 to-blue-500',
+        change: '12 this month',
+        bgGradient: 'from-blue-100 to-white dark:from-blue-900/30 dark:to-blue-950/10'
+      }
+    ];
 
-  const quickActions = [
-    {
-      title: 'Send Data',
-      description: 'Transfer data to friends instantly',
-      icon: Send,
-      color: 'from-blue-500 to-cyan-500',
-      onClick: () => onNavigate('send-data')
-    },
-    {
-      title: 'Build Custom Plan',
-      description: 'Create your perfect recharge plan',
-      icon: Plus,
-      color: 'from-violet-500 to-fuchsia-600',
-      onClick: () => onNavigate('recharge')
-    },
-    {
-      title: 'View History',
-      description: 'Check recent activity & transactions',
-      icon: History,
-      color: 'from-emerald-500 to-teal-500',
-      onClick: () => onNavigate('history')
-    },
-    {
-      title: 'UDI / Devices',
-      description: 'Manage connected devices',
-      icon: Settings,
-      color: 'from-orange-500 to-pink-500',
-      onClick: () => onNavigate('devices')
-    }
-  ];
+    const quickActions = [
+      {
+        title: 'Send Data',
+        description: 'Transfer data to friends instantly',
+        icon: Send,
+        color: 'from-blue-600 to-blue-400',
+        onClick: () => onNavigate('send-data')
+      },
+      {
+        title: 'Build Custom Plan',
+        description: 'Create your perfect recharge plan',
+        icon: Plus,
+        color: 'from-violet-600 to-violet-400',
+        onClick: () => onNavigate('recharge')
+      },
+      {
+        title: 'View History',
+        description: 'Check recent activity & transactions',
+        icon: History,
+        color: 'from-cyan-600 to-cyan-400',
+        onClick: () => onNavigate('history')
+      },
+      {
+        title: 'UDI / Devices',
+        description: 'Manage connected devices',
+        icon: Settings,
+        color: 'from-blue-700 to-blue-500',
+        onClick: () => onNavigate('devices')
+      }
+    ];
 
   const aiSuggestions = [
     {
