@@ -79,14 +79,12 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
         >
           {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </Button>
-        <div className="ml-3 flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
-            <Smartphone className="w-4 h-4 text-white" />
+          <div className="ml-3 flex items-center gap-2">
+            <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+            <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+              P!VOT
+            </h1>
           </div>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-            P!VOT
-          </h1>
-        </div>
         <div className="ml-auto">
           <PlanBadge />
         </div>
@@ -99,14 +97,12 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
         sidebarOpen ? "translate-x-0 animate-slide-in-left" : "-translate-x-full"
       )}>
         <div className="p-6 flex-1 flex flex-col">
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow hover-scale">
-              <Smartphone className="w-6 h-6 text-white" />
+            <div className="flex items-center gap-3 mb-10">
+              <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain shadow-lg hover:shadow-xl transition-shadow hover-scale" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+                P!VOT
+              </h1>
             </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-              P!VOT
-            </h1>
-          </div>
 
           {/* Plan Badge - Desktop */}
           <div className="hidden lg:flex justify-center mb-6">
