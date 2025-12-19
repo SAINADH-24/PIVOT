@@ -45,33 +45,33 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         title: 'Data Balance',
         value: '12.5 GB',
         icon: Database,
-        color: 'from-orange-600 to-orange-400',
+        color: 'from-orange-400 via-orange-500 to-amber-500',
         change: '+2.5 GB this week',
-        bgGradient: 'from-orange-50 to-white dark:from-orange-950/20 dark:to-orange-900/10'
+        bgGradient: 'from-orange-50/50 to-white dark:from-orange-950/20 dark:to-orange-900/10'
       },
       {
         title: 'Pivot Points',
         value: '1,250',
         icon: Coins,
-        color: 'from-violet-600 to-violet-400',
+        color: 'from-fuchsia-400 via-violet-500 to-purple-600',
         change: '+150 points',
-        bgGradient: 'from-violet-50 to-white dark:from-violet-950/20 dark:to-violet-900/10'
+        bgGradient: 'from-violet-50/50 to-white dark:from-violet-950/20 dark:to-violet-900/10'
       },
       {
         title: 'Active Devices',
         value: '3',
         icon: Smartphone,
-        color: 'from-cyan-600 to-cyan-400',
+        color: 'from-cyan-400 via-teal-500 to-emerald-500',
         change: '2 connected',
-        bgGradient: 'from-cyan-50 to-white dark:from-cyan-950/20 dark:to-cyan-900/10'
+        bgGradient: 'from-cyan-50/50 to-white dark:from-cyan-950/20 dark:to-cyan-900/10'
       },
       {
         title: 'Total Transfers',
         value: '47',
         icon: ArrowRightLeft,
-        color: 'from-blue-700 to-blue-500',
+        color: 'from-rose-400 via-rose-500 to-pink-600',
         change: '12 this month',
-        bgGradient: 'from-blue-100 to-white dark:from-blue-900/30 dark:to-blue-950/10'
+        bgGradient: 'from-rose-50/50 to-white dark:from-rose-950/20 dark:to-rose-900/10'
       }
     ];
 
@@ -80,28 +80,28 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         title: 'Send Data',
         description: 'Transfer data to friends instantly',
         icon: Send,
-        color: 'from-orange-600 to-orange-400',
+        color: 'from-orange-400 to-orange-500',
         onClick: () => onNavigate('send-data')
       },
       {
         title: 'Build Custom Plan',
         description: 'Create your perfect recharge plan',
         icon: Plus,
-        color: 'from-violet-600 to-violet-400',
+        color: 'from-emerald-400 to-teal-500',
         onClick: () => onNavigate('recharge')
       },
       {
         title: 'View History',
         description: 'Check recent activity & transactions',
         icon: History,
-        color: 'from-cyan-600 to-cyan-400',
+        color: 'from-violet-400 to-purple-600',
         onClick: () => onNavigate('history')
       },
       {
         title: 'UDI / Devices',
         description: 'Manage connected devices',
         icon: Settings,
-        color: 'from-blue-700 to-blue-500',
+        color: 'from-rose-400 to-pink-500',
         onClick: () => onNavigate('devices')
       }
     ];
@@ -146,14 +146,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             )}
           >
             <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className={cn(
-                  "w-12 h-12 rounded-xl bg-gradient-to-br shadow-lg flex items-center justify-center hover-scale",
-                  kpi.color
-                )}>
-                  <kpi.icon className="w-6 h-6 text-white" />
+                <div className="flex items-start justify-between mb-4">
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl bg-gradient-to-br shadow-lg flex items-center justify-center hover-scale ring-4 ring-white/20 dark:ring-white/10",
+                    kpi.color
+                  )}>
+                    <kpi.icon className="w-6 h-6 text-white" />
+                  </div>
                 </div>
-              </div>
               <div>
                 <p className="text-sm text-muted-foreground font-medium mb-1">{kpi.title}</p>
                 <p className="text-3xl font-bold mb-2">{kpi.value}</p>
@@ -178,13 +178,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               onClick={action.onClick}
             >
               <CardContent className="p-5">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className={cn(
-                    "w-16 h-16 rounded-2xl bg-gradient-to-br shadow-lg flex items-center justify-center transition-transform group-hover:scale-110",
-                    action.color
-                  )}>
-                    <action.icon className="w-8 h-8 text-white" />
-                  </div>
+                  <div className="flex flex-col items-center text-center gap-3">
+                    <div className={cn(
+                      "w-16 h-16 rounded-2xl bg-gradient-to-br shadow-lg flex items-center justify-center transition-transform group-hover:scale-110 ring-4 ring-white/20 dark:ring-white/10",
+                      action.color
+                    )}>
+                      <action.icon className="w-8 h-8 text-white" />
+                    </div>
                   <div>
                     <h3 className="font-bold text-base mb-1">{action.title}</h3>
                     <p className="text-xs text-muted-foreground">{action.description}</p>
