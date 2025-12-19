@@ -45,9 +45,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         title: 'Data Balance',
         value: '12.5 GB',
         icon: Database,
-        color: 'from-blue-600 to-blue-400',
+        color: 'from-orange-600 to-orange-400',
         change: '+2.5 GB this week',
-        bgGradient: 'from-blue-50 to-white dark:from-blue-950/20 dark:to-blue-900/10'
+        bgGradient: 'from-orange-50 to-white dark:from-orange-950/20 dark:to-orange-900/10'
       },
       {
         title: 'Pivot Points',
@@ -80,7 +80,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         title: 'Send Data',
         description: 'Transfer data to friends instantly',
         icon: Send,
-        color: 'from-blue-600 to-blue-400',
+        color: 'from-orange-600 to-orange-400',
         onClick: () => onNavigate('send-data')
       },
       {
@@ -127,13 +127,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   return (
     <div className="space-y-8">
-      {/* Welcome Section */}
-      <div className="animate-fade-in-up">
-        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-          Welcome back, {userName}! 👋
-        </h1>
-        <p className="text-muted-foreground text-lg">Here's your mobile data overview</p>
-      </div>
+        {/* Welcome Section */}
+        <div className="animate-fade-in-up">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
+            Welcome back, {userName}! 👋
+          </h1>
+          <p className="text-muted-foreground text-lg">Here's your mobile data overview</p>
+        </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
