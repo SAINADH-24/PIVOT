@@ -81,7 +81,7 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
         </Button>
           <div className="ml-3 flex items-center gap-2">
             <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
-            <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               P!VOT
             </h1>
           </div>
@@ -96,13 +96,13 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
         "lg:translate-x-0",
         sidebarOpen ? "translate-x-0 animate-slide-in-left" : "-translate-x-full"
       )}>
-        <div className="p-6 flex-1 flex flex-col">
-            <div className="flex items-center gap-3 mb-10">
-              <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain shadow-lg hover:shadow-xl transition-shadow hover-scale" />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-                P!VOT
-              </h1>
-            </div>
+          <div className="p-6 flex-1 flex flex-col">
+              <div className="flex items-center gap-3 mb-10">
+                <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain shadow-lg hover:shadow-xl transition-shadow hover-scale" />
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  P!VOT
+                </h1>
+              </div>
 
           {/* Plan Badge - Desktop */}
           <div className="hidden lg:flex justify-center mb-6">
@@ -114,21 +114,21 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
               const Icon = item.icon;
               const isActive = currentPage === item.href;
               return (
-                <button
-                  key={item.name}
-                  onClick={() => {
-                    onNavigate(item.href);
-                    setSidebarOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-                    isActive 
-                      ? "bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white shadow-md" 
-                      : "hover:bg-accent text-muted-foreground hover:text-foreground hover:shadow-sm",
-                    "stagger-item"
-                  )}
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
+                  <button
+                    key={item.name}
+                    onClick={() => {
+                      onNavigate(item.href);
+                      setSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+                      isActive 
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md" 
+                        : "hover:bg-accent text-muted-foreground hover:text-foreground hover:shadow-sm",
+                      "stagger-item"
+                    )}
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
                   <Icon className={cn(
                     "w-5 h-5 transition-transform",
                     isActive ? "" : "group-hover:scale-110"
@@ -143,13 +143,13 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
           <div className="mb-4">
             <button
               onClick={() => router.push('/pricing')}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border-2 border-violet-200 dark:border-violet-800 hover:border-violet-300 dark:hover:border-violet-700 transition-all duration-200 group hover-lift"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-50 to-sky-50 dark:from-blue-950/20 dark:to-sky-950/20 border-2 border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 group hover-lift"
             >
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
                 <CreditCard className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1 text-left">
-                <p className="font-semibold text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+                <p className="font-semibold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   Upgrade Plan
                 </p>
                 <p className="text-xs text-muted-foreground">Get more features</p>

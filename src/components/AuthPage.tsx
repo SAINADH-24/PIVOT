@@ -98,13 +98,13 @@ export function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-gray-900 dark:via-purple-950 dark:to-violet-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-sky-50 to-indigo-50 dark:from-gray-900 dark:via-blue-950 dark:to-indigo-950 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8 animate-fade-in-up">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white mb-6 shadow-2xl hover-scale animate-pulse-glow p-3">
             <img src="/logo.png" alt="P!VOT Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent mb-3">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
             P!VOT
           </h1>
           <p className="text-muted-foreground text-lg">Smart Mobile Data Management</p>
@@ -156,7 +156,7 @@ export function AuthPage() {
                       type="checkbox"
                       checked={loginRememberMe}
                       onChange={(e) => setLoginRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300"
+                      className="w-4 h-4 rounded border-gray-300 focus:ring-blue-500 text-blue-600"
                     />
                     <Label htmlFor="remember-me" className="text-sm font-medium cursor-pointer">
                       Remember me
@@ -172,7 +172,7 @@ export function AuthPage() {
                   )}
                   <Button 
                     type="submit" 
-                    className="w-full h-12 text-base font-semibold bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-lg hover-lift" 
+                    className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover-lift" 
                     disabled={isLoading}
                   >
                     {isLoading ? 'Logging in...' : 'Login'}
@@ -185,7 +185,7 @@ export function AuthPage() {
                         const signupTab = document.querySelector('[value="signup"]') as HTMLElement;
                         if (signupTab) signupTab.click();
                       }}
-                      className="text-violet-600 hover:text-violet-700 font-semibold"
+                      className="text-blue-600 hover:text-blue-700 font-semibold"
                     >
                       Sign up
                     </button>
@@ -257,7 +257,7 @@ export function AuthPage() {
                   )}
                   <Button 
                     type="submit" 
-                    className="w-full h-12 text-base font-semibold bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-lg hover-lift" 
+                    className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover-lift" 
                     disabled={isLoading}
                   >
                     {isLoading ? 'Creating account...' : 'Sign Up'}
@@ -270,7 +270,7 @@ export function AuthPage() {
                         const loginTab = document.querySelector('[value="login"]') as HTMLElement;
                         if (loginTab) loginTab.click();
                       }}
-                      className="text-violet-600 hover:text-violet-700 font-semibold"
+                      className="text-blue-600 hover:text-blue-700 font-semibold"
                     >
                       Login
                     </button>
@@ -283,7 +283,7 @@ export function AuthPage() {
         
         <div className="mt-8 text-center animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-            <Zap className="w-4 h-4 text-violet-500" />
+            <Zap className="w-4 h-4 text-blue-500" />
             Powered by AI • Seamless Data Transfer
           </p>
         </div>

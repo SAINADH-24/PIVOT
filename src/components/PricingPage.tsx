@@ -41,28 +41,28 @@ export function PricingPage() {
     },
   ];
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-gray-900 dark:via-purple-950 dark:to-violet-950 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex items-center gap-4 animate-fade-in-up">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => router.push('/')}
-            className="hover-scale"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="text-center flex-1">
-            <h1 className="text-4xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-              Choose Your Plan
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Upgrade your P!VOT experience with more data transfers, Pivot Points, and premium features
-            </p>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-indigo-50 dark:from-gray-900 dark:via-blue-950 dark:to-indigo-950 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Header */}
+          <div className="flex items-center gap-4 animate-fade-in-up">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => router.push('/')}
+              className="hover-scale"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="text-center flex-1">
+              <h1 className="text-4xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Choose Your Plan
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Upgrade your P!VOT experience with more data transfers, Pivot Points, and premium features
+              </p>
+            </div>
           </div>
-        </div>
 
         {/* Pricing Table */}
         <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
