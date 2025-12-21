@@ -667,8 +667,8 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
                     disabled={isDisabled}
                     className={cn(
                       "w-full p-4 rounded-xl border-2 transition-all text-left",
-                      "hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/20",
-                      "focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2",
+                      "hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20",
+                      "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
                       isDisabled && "opacity-50 cursor-not-allowed hover:border-border hover:bg-transparent",
                       !isDisabled && "hover-lift"
                     )}
