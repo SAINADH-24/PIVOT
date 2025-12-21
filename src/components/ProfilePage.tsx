@@ -392,11 +392,12 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
                 </RadioGroup>
               </div>
 
-              <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
-                <p className="text-sm text-blue-900 dark:text-blue-300">
-                  <strong>Note:</strong> When 2FA is enabled, you'll need to enter a verification code sent to your {twoFactorMethod === 'sms' ? 'phone' : 'email'} each time you log in or perform sensitive operations like data transfers.
-                </p>
-              </div>
+                <div className="p-4 rounded-lg bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900">
+                  <p className="text-sm text-violet-900 dark:text-violet-300">
+                    <strong>Note:</strong> When 2FA is enabled, you'll need to enter a verification code sent to your {twoFactorMethod === 'sms' ? 'phone' : 'email'} each time you log in or perform sensitive operations like data transfers.
+                  </p>
+                </div>
+
             </div>
           )}
         </CardContent>
