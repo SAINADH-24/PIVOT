@@ -51,30 +51,30 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* User requested theme: Blue for primary and major surfaces */
-  --color-blue-50: #E9FEFF;
-  --color-blue-100: #D1FDFF;
-  --color-blue-200: #A3FAFF;
-  --color-blue-300: #75F7FF;
-  --color-blue-400: #47F4FF;
-  --color-blue-500: #1177FF; /* Main Blue */
-  --color-blue-600: #0E62D1;
-  --color-blue-700: #0B4CA3;
-  --color-blue-800: #083775;
-  --color-blue-900: #052147;
-  --color-blue-950: #031124;
+  /* User requested theme: Violet/Fuchsia for primary and major surfaces */
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6; /* Main Violet */
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+  --color-brand-950: #2e1065;
 
-  --color-sky-50: #E9FEFF;
-  --color-sky-100: #D1FDFF;
-  --color-sky-200: #A3FAFF;
-  --color-sky-300: #75F7FF;
-  --color-sky-400: #47F4FF;
-  --color-sky-500: #1177FF;
-  --color-sky-600: #0E62D1;
-  --color-sky-700: #0B4CA3;
-  --color-sky-800: #083775;
-  --color-sky-900: #052147;
-  --color-sky-950: #031124;
+  --color-primary-50: var(--color-brand-50);
+  --color-primary-100: var(--color-brand-100);
+  --color-primary-200: var(--color-brand-200);
+  --color-primary-300: var(--color-brand-300);
+  --color-primary-400: var(--color-brand-400);
+  --color-primary-500: var(--color-brand-500);
+  --color-primary-600: var(--color-brand-600);
+  --color-primary-700: var(--color-brand-700);
+  --color-primary-800: var(--color-brand-800);
+  --color-primary-900: var(--color-brand-900);
+  --color-primary-950: var(--color-brand-950);
 
   /* Restoring Pink/Red accent family (255, 17, 119) for SVGs and accent Divs */
   --color-pink-50: #FFF1F5;
@@ -89,29 +89,29 @@
   --color-pink-900: #730033;
   --color-pink-950: #4D0022;
 
-  --color-violet-50: var(--color-pink-50);
-  --color-violet-100: var(--color-pink-100);
-  --color-violet-200: var(--color-pink-200);
-  --color-violet-300: var(--color-pink-300);
-  --color-violet-400: var(--color-pink-400);
-  --color-violet-500: var(--color-pink-500);
-  --color-violet-600: var(--color-pink-600);
-  --color-violet-700: var(--color-pink-700);
-  --color-violet-800: var(--color-pink-800);
-  --color-violet-900: var(--color-pink-900);
-  --color-violet-950: var(--color-pink-950);
+  --color-violet-50: #f5f3ff;
+  --color-violet-100: #ede9fe;
+  --color-violet-200: #ddd6fe;
+  --color-violet-300: #c4b5fd;
+  --color-violet-400: #a78bfa;
+  --color-violet-500: #8b5cf6;
+  --color-violet-600: #7c3aed;
+  --color-violet-700: #6d28d9;
+  --color-violet-800: #5b21b6;
+  --color-violet-900: #4c1d95;
+  --color-violet-950: #2e1065;
 
-  --color-fuchsia-50: var(--color-pink-50);
-  --color-fuchsia-100: var(--color-pink-100);
-  --color-fuchsia-200: var(--color-pink-200);
-  --color-fuchsia-300: var(--color-pink-300);
-  --color-fuchsia-400: var(--color-pink-400);
-  --color-fuchsia-500: var(--color-pink-500);
-  --color-fuchsia-600: var(--color-pink-600);
-  --color-fuchsia-700: var(--color-pink-700);
-  --color-fuchsia-800: var(--color-pink-900);
-  --color-fuchsia-900: var(--color-pink-900);
-  --color-fuchsia-950: var(--color-pink-950);
+  --color-fuchsia-50: #fdf4ff;
+  --color-fuchsia-100: #fae8ff;
+  --color-fuchsia-200: #f5d0fe;
+  --color-fuchsia-300: #f0abfc;
+  --color-fuchsia-400: #e879f9;
+  --color-fuchsia-500: #d946ef;
+  --color-fuchsia-600: #c026d3;
+  --color-fuchsia-700: #a21caf;
+  --color-fuchsia-800: #86198f;
+  --color-fuchsia-900: #701a75;
+  --color-fuchsia-950: #4a044e;
 
   /* Restoring other colorful families for SVGs and Divs (Standard Tailwind Colors) */
   --color-orange-50: #fff7ed;
