@@ -265,22 +265,23 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
                         "flex items-center justify-between p-4 rounded-xl border hover:shadow-md transition-all cursor-pointer stagger-item",
                         transaction.type === 'earned' && "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900",
                         transaction.type === 'spent' && "bg-red-50 dark:bg-red-950/10 border-red-200 dark:border-red-900",
-                        transaction.type === 'bonus' && "bg-blue-50 dark:bg-blue-950/10 border-blue-200 dark:border-blue-900"
-                      )}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-12 h-12 rounded-xl flex items-center justify-center shadow-md",
-                          transaction.type === 'earned' && 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30',
-                          transaction.type === 'spent' && 'bg-gradient-to-br from-red-100 to-rose-100 dark:from-red-900/30 dark:to-rose-900/30',
-                          transaction.type === 'bonus' && 'bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30'
-                        )}>
-                          <Icon className={cn(
-                            "w-6 h-6",
-                            transaction.type === 'earned' && 'text-green-600 dark:text-green-400',
-                            transaction.type === 'spent' && 'text-red-600 dark:text-red-400',
-                            transaction.type === 'bonus' && 'text-blue-600 dark:text-blue-400'
-                          )} />
+                          transaction.type === 'bonus' && "bg-violet-50 dark:bg-violet-950/10 border-violet-200 dark:border-violet-900"
+                        )}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-12 h-12 rounded-xl flex items-center justify-center shadow-md",
+                            transaction.type === 'earned' && 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30',
+                            transaction.type === 'spent' && 'bg-gradient-to-br from-red-100 to-rose-100 dark:from-red-900/30 dark:to-rose-900/30',
+                            transaction.type === 'bonus' && 'bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30'
+                          )}>
+                            <Icon className={cn(
+                              "w-6 h-6",
+                              transaction.type === 'earned' && 'text-green-600 dark:text-green-400',
+                              transaction.type === 'spent' && 'text-red-600 dark:text-red-400',
+                              transaction.type === 'bonus' && 'text-violet-600 dark:text-violet-400'
+                            )} />
+
                         </div>
                         <div>
                           <p className="font-semibold text-base">{transaction.description}</p>
