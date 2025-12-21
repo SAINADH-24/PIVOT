@@ -129,7 +129,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     <div className="space-y-8">
         {/* Welcome Section */}
         <div className="animate-fade-in-up">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             Welcome back, {userName}! 👋
           </h1>
           <p className="text-muted-foreground text-lg">Here's your mobile data overview</p>
