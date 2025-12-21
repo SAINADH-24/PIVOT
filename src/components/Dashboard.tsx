@@ -201,7 +201,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center animate-pulse-glow">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center animate-pulse-glow">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -219,7 +219,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 className={cn(
                   "flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border transition-all duration-300 hover:shadow-lg cursor-pointer group",
                   plan.recommended 
-                    ? "bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border-violet-200 dark:border-violet-800" 
+                    ? "bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/20 dark:to-sky-950/20 border-blue-200 dark:border-blue-800" 
                     : "bg-card hover:bg-accent/50"
                 )}
               >
@@ -227,7 +227,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <div className="flex items-center gap-2 mb-2">
                     <h4 className="font-bold text-lg">{plan.title}</h4>
                     {plan.recommended && (
-                      <Badge variant="secondary" className="bg-violet-600 text-white animate-scale-in">
+                      <Badge variant="secondary" className="bg-blue-600 text-white animate-scale-in">
                         Recommended
                       </Badge>
                     )}
@@ -237,16 +237,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     <span>•</span>
                     <span>{plan.validity}</span>
                     <span>•</span>
-                    <span className="text-violet-600 dark:text-violet-400 font-semibold">{plan.points}</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-semibold">{plan.points}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+                  <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                     {plan.price}
                   </span>
                   <Button 
                     size="default" 
-                    className="bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-md hover-lift"
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover-lift"
                   >
                     Activate
                   </Button>
