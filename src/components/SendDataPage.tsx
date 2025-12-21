@@ -479,16 +479,16 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Current Balance */}
-          <div className="grid grid-cols-2 gap-4 p-5 rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/20 dark:to-sky-950/20 border border-blue-100 dark:border-blue-900">
+          <div className="grid grid-cols-2 gap-4 p-5 rounded-xl bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border border-violet-100 dark:border-violet-900">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground font-medium">Available Data</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <p className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
                 {userDataBalance.toFixed(1)} GB
               </p>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground font-medium">Pivot Points</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <p className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
                 {userPivotPoints.toLocaleString()}
               </p>
             </div>
@@ -611,11 +611,11 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
             </div>
 
             {/* Fee Calculation */}
-            <Card className="bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/20 dark:to-sky-950/20 border-blue-200 dark:border-blue-800 hover-scale">
+            <Card className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border-violet-200 dark:border-violet-800 hover-scale">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-base font-semibold">Transfer Fee</span>
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-lg">
+                  <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 font-bold text-lg">
                     <Coins className="w-5 h-5" />
                     <span>{pivotPointsFee} PP</span>
                   </div>
@@ -624,7 +624,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
                   <p className="text-sm text-muted-foreground">
                     Fee: 10 Pivot Points per GB • Instant transfer
                   </p>
-                  <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  <p className="text-sm font-medium text-violet-700 dark:text-violet-300">
                     Remaining after transfer: {(userDataBalance - dataAmount[0]).toFixed(1)} GB
                   </p>
                 </div>
@@ -633,7 +633,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
           </div>
 
           <Button 
-            className="w-full h-12 text-base font-semibold hover-lift bg-blue-600 hover:bg-blue-700 text-white" 
+            className="w-full h-12 text-base font-semibold hover-lift" 
             size="lg"
             onClick={handleTransfer}
             disabled={!isFormValid || isSubmitting}
@@ -667,8 +667,8 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
                     disabled={isDisabled}
                     className={cn(
                       "w-full p-4 rounded-xl border-2 transition-all text-left",
-                      "hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20",
-                      "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                      "hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/20",
+                      "focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2",
                       isDisabled && "opacity-50 cursor-not-allowed hover:border-border hover:bg-transparent",
                       !isDisabled && "hover-lift"
                     )}
