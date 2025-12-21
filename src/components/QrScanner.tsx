@@ -1518,7 +1518,8 @@ export function QrScanner({
                         "shrink-0",
                         log.status === 'success' && "text-green-600 dark:text-green-400",
                         log.status === 'error' && "text-red-600 dark:text-red-400",
-                        log.status === 'info' && "text-blue-600 dark:text-blue-400"
+                          log.status === 'info' && "text-violet-600 dark:text-violet-400"
+
                       )}>
                         {log.status === 'success' ? '✅' : log.status === 'error' ? '❌' : 'ℹ️'}
                       </span>
