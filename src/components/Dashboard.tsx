@@ -45,23 +45,23 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         title: 'Data Balance',
         value: '12.5 GB',
         icon: Database,
-        color: 'from-orange-400 via-orange-500 to-amber-500',
+        color: 'from-blue-400 via-blue-500 to-blue-600',
         change: '+2.5 GB this week',
-        bgGradient: 'from-orange-50/50 to-white dark:from-orange-950/20 dark:to-orange-900/10'
+        bgGradient: 'from-blue-50/50 to-white dark:from-blue-950/20 dark:to-blue-900/10'
       },
       {
         title: 'Pivot Points',
         value: '1,250',
         icon: Coins,
-        color: 'from-fuchsia-400 via-violet-500 to-purple-600',
+        color: 'from-sky-400 via-blue-500 to-indigo-600',
         change: '+150 points',
-        bgGradient: 'from-violet-50/50 to-white dark:from-violet-950/20 dark:to-violet-900/10'
+        bgGradient: 'from-sky-50/50 to-white dark:from-sky-950/20 dark:to-sky-900/10'
       },
       {
         title: 'Active Devices',
         value: '3',
         icon: Smartphone,
-        color: 'from-cyan-400 via-teal-500 to-emerald-500',
+        color: 'from-cyan-400 via-blue-500 to-blue-600',
         change: '2 connected',
         bgGradient: 'from-cyan-50/50 to-white dark:from-cyan-950/20 dark:to-cyan-900/10'
       },
@@ -69,9 +69,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         title: 'Total Transfers',
         value: '47',
         icon: ArrowRightLeft,
-        color: 'from-rose-400 via-rose-500 to-pink-600',
+        color: 'from-indigo-400 via-blue-500 to-blue-600',
         change: '12 this month',
-        bgGradient: 'from-rose-50/50 to-white dark:from-rose-950/20 dark:to-rose-900/10'
+        bgGradient: 'from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-indigo-900/10'
       }
     ];
 
@@ -80,28 +80,28 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         title: 'Send Data',
         description: 'Transfer data to friends instantly',
         icon: Send,
-        color: 'from-orange-400 to-orange-500',
+        color: 'from-blue-400 to-blue-600',
         onClick: () => onNavigate('send-data')
       },
       {
         title: 'Build Custom Plan',
         description: 'Create your perfect recharge plan',
         icon: Plus,
-        color: 'from-emerald-400 to-teal-500',
+        color: 'from-sky-400 to-blue-600',
         onClick: () => onNavigate('recharge')
       },
       {
         title: 'View History',
         description: 'Check recent activity & transactions',
         icon: History,
-        color: 'from-violet-400 to-purple-600',
+        color: 'from-indigo-400 to-blue-600',
         onClick: () => onNavigate('history')
       },
       {
         title: 'UDI / Devices',
         description: 'Manage connected devices',
         icon: Settings,
-        color: 'from-rose-400 to-pink-500',
+        color: 'from-blue-500 to-indigo-700',
         onClick: () => onNavigate('devices')
       }
     ];
