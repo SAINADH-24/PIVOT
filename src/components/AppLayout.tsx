@@ -11,9 +11,10 @@ import {
   User, 
   Menu,
   X,
-  LogOut,
-  CreditCard
-} from 'lucide-react';
+    LogOut,
+    CreditCard,
+    ShieldCheck
+  } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { authClient, useSession } from '@/lib/auth-client';
@@ -46,6 +47,11 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
     { name: 'History', href: 'history', icon: History },
     { name: 'Profile', href: 'profile', icon: User },
   ];
+
+  const isAdmin = (session?.user as any)?.role === 'admin';
+  if (isAdmin) {
+    navigation.push({ name: 'Admin', href: 'admin', icon: ShieldCheck });
+  }
 
   const handleSignOut = async () => {
     setIsLoggingOut(true);
@@ -121,7 +127,11 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
                   <button
                     key={item.name}
                     onClick={() => {
-                      onNavigate(item.href);
+                      if (item.href === 'admin') {
+                        router.push('/admin');
+                      } else {
+                        onNavigate(item.href);
+                      }
                       setSidebarOpen(false);
                     }}
                     className={cn(

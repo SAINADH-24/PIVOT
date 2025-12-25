@@ -18,6 +18,7 @@ export const auth = betterAuth({
             udi: { type: "string" },
             dataBalance: { type: "number" },
             pivotPoints: { type: "number" },
+            role: { type: "string" },
         }
     },
 	plugins: [bearer()]
