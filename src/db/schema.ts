@@ -85,6 +85,17 @@ export const usageHistory = sqliteTable('usage_history', {
   createdAt: text('created_at').notNull(),
 });
 
+// Notifications table for real-time alerts
+export const notifications = sqliteTable('notifications', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  type: text('type').notNull(), // 'data_received', 'data_sent', 'system'
+  read: integer('read', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull(),
+});
+
 
 // Auth tables for better-auth
 export const user = sqliteTable("user", {

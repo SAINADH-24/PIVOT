@@ -278,54 +278,57 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
 
     setIsSubmitting(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      const response = await fetch('/api/data/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientPhone,
+          recipientUdi,
+          amount: dataAmount[0],
+          network,
+          fee: pivotPointsFee
+        })
+      });
 
-    // Update user balance through API (in production, this would be a real API call)
-    // For now, we'll just proceed with the transfer
-    
-    // FEATURE GATE: Track data transfer usage
-    await track({ 
-      featureId: 'data_transfers', 
-      value: dataAmount[0],
-      idempotencyKey: `data-transfer-${Date.now()}`
-    });
-    
-    // Refresh customer data to update usage displays
-    await refetch();
+      const result = await response.json();
 
-    setShowPinDialog(false);
-    setTransferSuccess(true);
+      if (!response.ok) {
+        throw new Error(result.error || 'Transfer failed');
+      }
 
-    // Record transaction in localStorage
-    const transactions = JSON.parse(localStorage.getItem('pivot_transactions') || '[]');
-    transactions.unshift({
-      id: Math.random().toString(36).substr(2, 9),
-      type: 'Data Transfer - Sent',
-      amount: dataAmount[0],
-      recipient: recipientPhone,
-      recipientUdi: recipientUdi || undefined,
-      network: network,
-      fee: pivotPointsFee,
-      date: new Date().toISOString(),
-      status: 'completed'
-    });
-    localStorage.setItem('pivot_transactions', JSON.stringify(transactions));
+      // Track usage in Autumn
+      await track({ 
+        featureId: 'data_transfers', 
+        value: dataAmount[0],
+        idempotencyKey: `data-transfer-${Date.now()}`
+      });
+      
+      // Refresh data
+      await refetch();
 
-    toast.success(`Data transfer successful! ${dataAmount[0]} GB sent to ${recipientPhone}`);
+      setShowPinDialog(false);
+      setTransferSuccess(true);
 
-    // Reset form after delay
-    setTimeout(() => {
-      setTransferSuccess(false);
-      setRecipientPhone('');
-      setRecipientUdi('');
-      setNetwork('');
-      setDataAmount([1]);
-      setErrors({});
-      setTouched({ phone: false, network: false });
+      toast.success(`Data transfer successful! ${dataAmount[0]} GB sent to ${recipientPhone}`);
+
+      // Reset form after delay
+      setTimeout(() => {
+        setTransferSuccess(false);
+        setRecipientPhone('');
+        setRecipientUdi('');
+        setNetwork('');
+        setDataAmount([1]);
+        setErrors({});
+        setTouched({ phone: false, network: false });
+        setIsSubmitting(false);
+        setPin('');
+      }, 2000);
+    } catch (error: any) {
+      toast.error(error.message);
       setIsSubmitting(false);
       setPin('');
-    }, 2000);
+    }
   };
 
   const handleScanQr = () => {

@@ -20,6 +20,7 @@ import { authClient, useSession } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import { PlanBadge } from '@/components/PlanBadge';
 import { useRouter } from 'next/navigation';
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 
 interface AppLayoutProps {
   currentPage: string;
@@ -32,6 +33,9 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
   const { data: session, refetch } = useSession();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
+
+  // Initialize real-time notifications for the receiver popup feature
+  useRealtimeNotifications();
 
   const navigation = [
     { name: 'Dashboard', href: 'dashboard', icon: Home },
