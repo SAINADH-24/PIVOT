@@ -12,6 +12,14 @@ export const auth = betterAuth({
 	emailAndPassword: {    
 		enabled: true
 	},
+    user: {
+        additionalFields: {
+            phoneNumber: { type: "string" },
+            udi: { type: "string" },
+            dataBalance: { type: "number" },
+            pivotPoints: { type: "number" },
+        }
+    },
 	plugins: [bearer()]
 });
 

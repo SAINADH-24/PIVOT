@@ -40,23 +40,26 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   const userName = session?.user?.name || 'User';
 
-    const kpiCards = [
-      {
-        title: 'Data Balance',
-        value: '12.5 GB',
-        icon: Database,
-        color: 'from-blue-400 via-blue-500 to-blue-600',
-        change: '+2.5 GB this week',
-        bgGradient: 'from-blue-50/50 to-white dark:from-blue-950/20 dark:to-blue-900/10'
-      },
-      {
-        title: 'Pivot Points',
-        value: '1,250',
-        icon: Coins,
-        color: 'from-sky-400 via-blue-500 to-indigo-600',
-        change: '+150 points',
-        bgGradient: 'from-sky-50/50 to-white dark:from-sky-950/20 dark:to-sky-900/10'
-      },
+    const userDataBalance = session?.user?.dataBalance || 0;
+    const userPivotPoints = session?.user?.pivotPoints || 0;
+
+      const kpiCards = [
+        {
+          title: 'Data Balance',
+          value: `${userDataBalance.toFixed(1)} GB`,
+          icon: Database,
+          color: 'from-blue-400 via-blue-500 to-blue-600',
+          change: '+2.5 GB this week',
+          bgGradient: 'from-blue-50/50 to-white dark:from-blue-950/20 dark:to-blue-900/10'
+        },
+        {
+          title: 'Pivot Points',
+          value: userPivotPoints.toLocaleString(),
+          icon: Coins,
+          color: 'from-sky-400 via-blue-500 to-indigo-600',
+          change: '+150 points',
+          bgGradient: 'from-sky-50/50 to-white dark:from-sky-950/20 dark:to-sky-900/10'
+        },
       {
         title: 'Active Devices',
         value: '3',
