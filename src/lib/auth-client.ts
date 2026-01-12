@@ -38,40 +38,7 @@ export const authClient = createAuthClient({
 
 type SessionData = ReturnType<typeof authClient.useSession>
 
-export function useSession(): SessionData {
-   const [session, setSession] = useState<any>(null);
-   const [isPending, setIsPending] = useState(true);
-   const [error, setError] = useState<any>(null);
-
-   const refetch = () => {
-      setIsPending(true);
-      setError(null);
-      fetchSession();
-   };
-
-   const fetchSession = async () => {
-      try {
-         const res = await authClient.getSession({
-            fetchOptions: {
-               auth: {
-                  type: "Bearer",
-                  token: typeof window !== 'undefined' ? localStorage.getItem("bearer_token") || "" : "",
-               },
-            },
-         });
-         setSession(res.data);
-         setError(null);
-      } catch (err) {
-         setSession(null);
-         setError(err);
-      } finally {
-         setIsPending(false);
-      }
-   };
-
-   useEffect(() => {
-      fetchSession();
-   }, []);
-
+export function useSession() {
+   const { data: session, isPending, error, refetch } = authClient.useSession();
    return { data: session, isPending, error, refetch };
 }

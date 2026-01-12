@@ -45,8 +45,8 @@ export function AuthPage() {
     
     toast.success('Successfully logged in!');
     setIsLoading(false);
-    // Force refresh to update session
-    window.location.href = "/";
+    // Use router.push for faster transition
+    router.refresh();
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -101,7 +101,7 @@ export function AuthPage() {
 
     toast.success("Successfully logged in!");
     setIsLoading(false);
-    window.location.href = "/";
+    router.refresh();
   };
 
   return (

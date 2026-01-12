@@ -12,6 +12,10 @@ export const auth = betterAuth({
 	emailAndPassword: {    
 		enabled: true
 	},
+    session: {
+        expiresIn: 60 * 60 * 24 * 7, // 7 days
+        updateAge: 60 * 60 * 24, // 24 hours (only update DB once a day per session)
+    },
     user: {
         additionalFields: {
             phoneNumber: { type: "string", required: false },
