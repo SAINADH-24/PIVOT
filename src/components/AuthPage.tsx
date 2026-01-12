@@ -83,19 +83,25 @@ export function AuthPage() {
       return;
     }
     
-    toast.success("Account created! Please login to continue.");
+    toast.success("Account created! Logging you in...");
+    
+    // Automatically log in after signup
+    const { error: signInError } = await authClient.signIn.email({
+      email: signupEmail,
+      password: signupPassword,
+    });
+
+    if (signInError) {
+      toast.error("Account created, but automatic login failed. Please login manually.");
+      setIsLoading(false);
+      const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+      if (loginTab) loginTab.click();
+      return;
+    }
+
+    toast.success("Successfully logged in!");
     setIsLoading(false);
-    
-    // Switch to login tab and clear form
-    setSignupName('');
-    setSignupEmail('');
-    setSignupPassword('');
-    setSignupConfirmPassword('');
-    setSignupPhone('');
-    
-    // Trigger tab switch - need to find tab trigger and click it
-    const loginTab = document.querySelector('[value="login"]') as HTMLElement;
-    if (loginTab) loginTab.click();
+    window.location.href = "/";
   };
 
   return (

@@ -8,15 +8,26 @@ export const authClient = createAuthClient({
       headers: {
         Authorization: `Bearer ${typeof window !== 'undefined' ? localStorage.getItem("bearer_token") : ""}`,
       },
-      onSuccess: (ctx) => {
-          const authToken = ctx.response.headers.get("set-auth-token")
-          // Store the token securely (e.g., in localStorage)
-          if(authToken){
-            // Split token at "." and take only the first part
-            const tokenPart = authToken.includes('.') ? authToken.split('.')[0] : authToken;
-            localStorage.setItem("bearer_token", tokenPart);
-          }
-      }
+       onSuccess: async (ctx) => {
+           const authToken = ctx.response.headers.get("set-auth-token")
+           // Store the token securely (e.g., in localStorage)
+           if(authToken){
+             // Split token at "." and take only the first part
+             const tokenPart = authToken.includes('.') ? authToken.split('.')[0] : authToken;
+             localStorage.setItem("bearer_token", tokenPart);
+           } else {
+             // Fallback: check if token is in the response body (common for bearer plugin)
+             try {
+               const json = await ctx.response.clone().json();
+               if (json.token) {
+                 const tokenPart = json.token.includes('.') ? json.token.split('.')[0] : json.token;
+                 localStorage.setItem("bearer_token", tokenPart);
+               }
+             } catch (e) {
+               // ignore
+             }
+           }
+       }
   }
 });
 
