@@ -275,21 +275,21 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
             </button>
           </div>
 
-          {/* User Info & Logout */}
-            <div className="pt-6 border-t border-border">
-              <div className="px-4 py-3 mb-3 rounded-xl bg-sidebar-accent/50 border border-sidebar-border">
-                <p className="text-sm font-medium text-sidebar-accent-foreground truncate">
-                  {session?.user?.name || 'User'}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {session?.user?.email || ''}
-                </p>
-                {session?.user?.udi && (
-                  <Badge variant="outline" className="mt-2 text-[10px] font-mono border-sidebar-accent-foreground/20 text-sidebar-accent-foreground/70">
-                    {session.user.udi}
-                  </Badge>
-                )}
-              </div>
+            {/* User Info & Logout */}
+              <div className="pt-6 border-t border-border">
+                <div className="px-4 py-3 mb-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900">
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400 truncate">
+                    {session?.user?.name || 'User'}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {session?.user?.email || ''}
+                  </p>
+                  {session?.user?.udi && (
+                    <Badge variant="outline" className="mt-2 text-[10px] font-mono border-blue-200 dark:border-blue-800 text-blue-600/70 dark:text-blue-400/70">
+                      {session.user.udi}
+                    </Badge>
+                  )}
+                </div>
             <Button
               onClick={handleSignOut}
               disabled={isLoggingOut}

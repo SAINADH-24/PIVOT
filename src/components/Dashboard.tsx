@@ -219,12 +219,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             {aiSuggestions.map((plan, index) => (
               <div 
                 key={index} 
-                className={cn(
-                  "flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border transition-all duration-300 hover:shadow-lg cursor-pointer group",
-                  plan.recommended 
-                    ? "bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/20 dark:to-sky-950/20 border-blue-200 dark:border-blue-800" 
-                    : "bg-card hover:bg-accent/50"
-                )}
+                  className={cn(
+                    "flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border transition-all duration-300 hover:shadow-lg cursor-pointer group",
+                    plan.recommended 
+                      ? "bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/20 dark:to-sky-950/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100/50 dark:hover:bg-blue-900/30" 
+                      : "bg-card hover:bg-blue-50 dark:hover:bg-blue-950/30 hover:border-blue-200 dark:hover:border-blue-800"
+                  )}
               >
                 <div className="flex-1 mb-4 sm:mb-0">
                   <div className="flex items-center gap-2 mb-2">

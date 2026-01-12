@@ -16,17 +16,17 @@ function AppContent() {
   const { data: session, isPending } = useSession();
   const [currentPage, setCurrentPage] = useState('dashboard');
 
-  // Show loading state while checking session
-  if (isPending) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-gray-900 dark:via-purple-950 dark:to-violet-950">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+    // Show loading state while checking session
+    if (isPending) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-sky-50 to-indigo-50 dark:from-gray-900 dark:via-blue-950 dark:to-indigo-950">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
   // Show auth page if not authenticated
   if (!session?.user) {
