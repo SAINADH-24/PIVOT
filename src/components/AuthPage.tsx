@@ -71,6 +71,7 @@ export function AuthPage() {
       email: signupEmail,
       name: signupName,
       password: signupPassword,
+      phoneNumber: signupPhone,
     });
 
     if (authError?.code) {

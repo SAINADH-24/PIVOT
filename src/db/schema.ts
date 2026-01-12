@@ -107,6 +107,10 @@ export const user = sqliteTable("user", {
     .notNull(),
   image: text("image"),
   role: text("role").notNull().default("user"),
+  phoneNumber: text("phoneNumber"),
+  udi: text("udi").unique().$defaultFn(() => `UDI-${Math.random().toString(36).substring(2, 9).toUpperCase()}`),
+  dataBalance: real("dataBalance").notNull().default(15.5),
+  pivotPoints: integer("pivotPoints").notNull().default(1250),
   createdAt: integer("created_at", { mode: "timestamp" })
     .$defaultFn(() => new Date())
     .notNull(),
