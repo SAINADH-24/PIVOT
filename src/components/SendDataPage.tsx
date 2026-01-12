@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { QrScanner } from '@/components/QrScanner';
+import { useUserData } from '@/hooks/useUserData';
 
 interface SendDataPageProps {
   onNavigate: (page: string) => void;
@@ -26,7 +27,8 @@ interface RecipientInfo {
 }
 
 export function SendDataPage({ onNavigate }: SendDataPageProps) {
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending: isSessionPending } = useSession();
+  const { userData, refresh: refreshUserData } = useUserData();
   const [recipientQuery, setRecipientQuery] = useState('');
   const [recipientInfo, setRecipientInfo] = useState<RecipientInfo | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -40,10 +42,11 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
   const [transferSuccess, setTransferSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isPending = isSessionPending && !userData;
   const MOCK_PIN = '1234';
   const pivotPointsFee = dataAmount[0] * 10;
-  const userDataBalance = session?.user?.dataBalance || 0;
-  const userPivotPoints = session?.user?.pivotPoints || 0;
+  const userDataBalance = userData?.dataBalance ?? session?.user?.dataBalance ?? 0;
+  const userPivotPoints = userData?.pivotPoints ?? session?.user?.pivotPoints ?? 0;
 
   const lookupRecipient = useCallback(async (query: string) => {
     if (!query || query.trim().length < 2) {
@@ -152,15 +155,15 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
 
       toast.success(`Data transfer successful! ${dataAmount[0]} GB sent to ${recipientInfo.name}`);
 
-      setTimeout(() => {
-        setTransferSuccess(false);
-        setRecipientQuery('');
-        setRecipientInfo(null);
-        setDataAmount([1]);
-        setIsSubmitting(false);
-        setPin('');
-        window.location.reload();
-      }, 2000);
+        setTimeout(() => {
+          setTransferSuccess(false);
+          setRecipientQuery('');
+          setRecipientInfo(null);
+          setDataAmount([1]);
+          setIsSubmitting(false);
+          setPin('');
+          refreshUserData();
+        }, 2000);
     } catch (error: any) {
       toast.error(error.message);
       setIsSubmitting(false);

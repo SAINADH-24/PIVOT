@@ -75,20 +75,20 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date().toISOString();
-    const currentTime = Math.floor(Date.now() / 1000);
+    const currentTimestamp = new Date();
 
     await db.update(user)
       .set({
         dataBalance: sql`${user.dataBalance} - ${amount}`,
         pivotPoints: sql`${user.pivotPoints} - ${pivotFee}`,
-        updatedAt: sql`${currentTime}`,
+        updatedAt: currentTimestamp,
       })
       .where(eq(user.id, sender.id));
 
     await db.update(user)
       .set({
         dataBalance: sql`${user.dataBalance} + ${amount}`,
-        updatedAt: sql`${currentTime}`,
+        updatedAt: currentTimestamp,
       })
       .where(eq(user.id, receiver.id));
 

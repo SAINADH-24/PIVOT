@@ -4,20 +4,22 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Send, Download, Filter, CheckCircle, Clock, XCircle, Search } from 'lucide-react';
+import { ArrowLeft, Send, Download, Filter, CheckCircle, Clock, XCircle, Search, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useUserData } from '@/hooks/useUserData';
 
 interface HistoryPageProps {
   onNavigate: (page: string) => void;
 }
 
 interface TransactionRecord {
-  id: string;
-  type: 'transfer' | 'recharge';
+  id: string | number;
+  type: 'transfer' | 'recharge' | 'sent' | 'received';
   amount: number;
   recipient?: string;
+  sender?: string;
   network?: string;
   fee: number;
   date: string;
@@ -25,48 +27,19 @@ interface TransactionRecord {
 }
 
 export function HistoryPage({ onNavigate }: HistoryPageProps) {
-  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
+  const { transfers, loading, error } = useUserData();
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    // Load transactions from localStorage
-    const stored = localStorage.getItem('pivot_transactions');
-    if (stored) {
-      setTransactions(JSON.parse(stored));
-    } else {
-      // Mock data
-      setTransactions([
-        {
-          id: '1',
-          type: 'transfer',
-          amount: 2.5,
-          recipient: '+1 234 567 8900',
-          network: 'Airtel',
-          fee: 25,
-          date: new Date().toISOString(),
-          status: 'completed'
-        },
-        {
-          id: '2',
-          type: 'recharge',
-          amount: 10,
-          fee: 100,
-          date: new Date(Date.now() - 86400000).toISOString(),
-          status: 'completed'
-        },
-        {
-          id: '3',
-          type: 'transfer',
-          amount: 1.5,
-          recipient: '+1 987 654 3210',
-          network: 'Jio',
-          fee: 15,
-          date: new Date(Date.now() - 172800000).toISOString(),
-          status: 'completed'
-        }
-      ]);
-    }
-  }, []);
+  const transactions: TransactionRecord[] = transfers.map(t => ({
+    id: t.id,
+    type: t.type,
+    amount: t.amount,
+    recipient: t.type === 'sent' ? `Receiver ID: ${t.receiverId.substring(0, 8)}...` : undefined,
+    sender: t.type === 'received' ? `Sender ID: ${t.senderId.substring(0, 8)}...` : undefined,
+    fee: t.fee,
+    date: t.createdAt,
+    status: t.status as any || 'completed'
+  }));
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -94,72 +67,91 @@ export function HistoryPage({ onNavigate }: HistoryPageProps) {
     }
   };
 
-  const transfers = transactions.filter(t => t.type === 'transfer');
-  const recharges = transactions.filter(t => t.type === 'recharge');
+  const allTransfers = transactions.filter(t => t.type === 'sent' || t.type === 'received');
+  const allRecharges = transactions.filter(t => t.type === 'recharge');
 
   const filteredTransactions = transactions.filter(t => 
     !searchQuery || 
     t.recipient?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.sender?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.network?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const TransactionCard = ({ transaction, index }: { transaction: TransactionRecord; index: number }) => {
-    const StatusIcon = getStatusIcon(transaction.status);
-    return (
-      <div 
-        className={cn(
-          "flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border transition-all duration-300 hover:shadow-lg cursor-pointer group stagger-item",
-          transaction.type === 'transfer' 
-            ? "bg-violet-50 dark:bg-violet-950/10 border-violet-200 dark:border-violet-900 hover:border-violet-300 dark:hover:border-violet-800" 
-            : "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900 hover:border-green-300 dark:hover:border-green-800"
-        )}
-      >
-        <div className="flex items-center gap-4 flex-1 mb-4 sm:mb-0">
-          <div className={cn(
-            "w-14 h-14 rounded-xl flex items-center justify-center shadow-md transition-transform group-hover:scale-110",
-            transaction.type === 'transfer' 
-              ? 'bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30' 
-              : 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30'
-          )}>
-            {transaction.type === 'transfer' ? (
-              <Send className="w-7 h-7 text-violet-600 dark:text-violet-400" />
-            ) : (
-              <Download className="w-7 h-7 text-green-600 dark:text-green-400" />
-            )}
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <p className="font-bold text-base capitalize">{transaction.type}</p>
-              <Badge variant="secondary" className={cn("animate-scale-in", getStatusColor(transaction.status))}>
-                <StatusIcon className="w-3 h-3 mr-1" />
-                {transaction.status}
-              </Badge>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {transaction.type === 'transfer' && transaction.recipient && (
-                <span className="font-medium">{transaction.recipient} • {transaction.network} • </span>
+    const TransactionCard = ({ transaction, index }: { transaction: TransactionRecord; index: number }) => {
+      const StatusIcon = getStatusIcon(transaction.status);
+      const isSent = transaction.type === 'sent';
+      const isReceived = transaction.type === 'received';
+
+      return (
+        <div 
+          className={cn(
+            "flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border transition-all duration-300 hover:shadow-lg cursor-pointer group stagger-item",
+            isSent 
+              ? "bg-violet-50 dark:bg-violet-950/10 border-violet-200 dark:border-violet-900 hover:border-violet-300 dark:hover:border-violet-800" 
+              : "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900 hover:border-green-300 dark:hover:border-green-800"
+          )}
+        >
+          <div className="flex items-center gap-4 flex-1 mb-4 sm:mb-0">
+            <div className={cn(
+              "w-14 h-14 rounded-xl flex items-center justify-center shadow-md transition-transform group-hover:scale-110",
+              isSent 
+                ? 'bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30' 
+                : 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30'
+            )}>
+              {isSent ? (
+                <Send className="w-7 h-7 text-violet-600 dark:text-violet-400" />
+              ) : (
+                <Download className="w-7 h-7 text-green-600 dark:text-green-400" />
               )}
-              <span>{new Date(transaction.date).toLocaleString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}</span>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="font-bold text-base capitalize">{transaction.type === 'sent' ? 'Data Sent' : 'Data Received'}</p>
+                <Badge variant="secondary" className={cn("animate-scale-in", getStatusColor(transaction.status))}>
+                  <StatusIcon className="w-3 h-3 mr-1" />
+                  {transaction.status}
+                </Badge>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {transaction.recipient && (
+                  <span className="font-medium text-violet-600 dark:text-violet-400">{transaction.recipient} • </span>
+                )}
+                {transaction.sender && (
+                  <span className="font-medium text-green-600 dark:text-green-400">{transaction.sender} • </span>
+                )}
+                <span>{new Date(transaction.date).toLocaleString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}</span>
+              </div>
             </div>
           </div>
+          <div className="text-right">
+            <p className={cn(
+              "font-bold text-2xl bg-gradient-to-r bg-clip-text text-transparent",
+              isSent ? "from-violet-600 to-fuchsia-600" : "from-green-600 to-emerald-600"
+            )}>
+              {isSent ? '-' : '+'}{transaction.amount} GB
+            </p>
+            <p className="text-xs text-muted-foreground font-medium">
+              {isSent ? 'Fee' : 'Points'}: {transaction.fee} PP
+            </p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="font-bold text-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-            {transaction.amount} GB
-          </p>
-          <p className="text-xs text-muted-foreground font-medium">
-            {transaction.type === 'transfer' ? 'Fee' : 'Points'}: {transaction.fee} PP
-          </p>
+      );
+    };
+
+    if (loading && transactions.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+          <p className="text-muted-foreground">Loading transactions...</p>
         </div>
-      </div>
-    );
-  };
+      );
+    }
 
   return (
     <div className="space-y-6">
