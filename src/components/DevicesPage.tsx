@@ -294,46 +294,46 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
           </div>
         </div>
         <Card className="premium-card">
-          <CardContent className="p-12 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const canAddDevice = isUnlimitedDevices || devices.length < deviceLimit;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => onNavigate('dashboard')}
-            className="hover-scale"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">UDI Devices</h1>
-            <p className="text-muted-foreground">Unified Device Interface - Manage your connected devices</p>
-            {!isUnlimitedDevices && (
-              <p className="text-sm text-muted-foreground mt-1">
-                <Badge variant="secondary" className="font-mono text-xs">
-                  {devices.length}/{deviceLimit} devices
-                </Badge>
-              </p>
-            )}
-          </div>
+            <CardContent className="p-12 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </CardContent>
+          </Card>
         </div>
-        <Dialog open={showAddDevice} onOpenChange={setShowAddDevice}>
-          <DialogTrigger asChild>
+      );
+    }
+  
+    const canAddDevice = isUnlimitedDevices || devices.length < deviceLimit;
+  
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
+          <div className="flex items-center gap-4">
             <Button 
-              className="bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-md hover-lift"
-              disabled={!canAddDevice}
+              variant="ghost" 
+              size="icon" 
+              onClick={() => onNavigate('dashboard')}
+              className="hover-scale"
             >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">UDI Devices</h1>
+              <p className="text-muted-foreground">Unified Device Interface - Manage your connected devices</p>
+              {!isUnlimitedDevices && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {devices.length}/{deviceLimit} devices
+                  </Badge>
+                </p>
+              )}
+            </div>
+          </div>
+          <Dialog open={showAddDevice} onOpenChange={setShowAddDevice}>
+            <DialogTrigger asChild>
+              <Button 
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover-lift"
+                disabled={!canAddDevice}
+              >
               {canAddDevice ? (
                 <>
                   <Plus className="w-4 h-4 mr-2" />
@@ -465,14 +465,14 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-        <Card className="premium-card hover-lift bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20">
+        <Card className="premium-card hover-lift bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground font-medium mb-1">Total Devices</p>
                 <p className="text-3xl font-bold">{devices.length}</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg flex items-center justify-center hover-scale">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg flex items-center justify-center hover-scale">
                 <Smartphone className="w-6 h-6 text-white" />
               </div>
             </div>
@@ -492,14 +492,14 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="premium-card hover-lift bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20">
+        <Card className="premium-card hover-lift bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground font-medium mb-1">Total Data Used</p>
                 <p className="text-3xl font-bold">{totalDataUsed.toFixed(1)} GB</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg flex items-center justify-center hover-scale">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg flex items-center justify-center hover-scale">
                 <Tablet className="w-6 h-6 text-white" />
               </div>
             </div>
@@ -706,45 +706,45 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Tips Card */}
-      <Card className="premium-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
-              <Smartphone className="w-5 h-5 text-white" />
-            </div>
-            Device Management Tips
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-3">
-            <li className="flex items-start gap-3 text-sm">
-              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/20 flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-violet-600 dark:text-violet-400 font-bold text-xs">1</span>
+        {/* Tips Card */}
+        <Card className="premium-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <Smartphone className="w-5 h-5 text-white" />
               </div>
-              <span className="text-muted-foreground">Share your data balance seamlessly across all registered devices</span>
-            </li>
-            <li className="flex items-start gap-3 text-sm">
-              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/20 flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-violet-600 dark:text-violet-400 font-bold text-xs">2</span>
-              </div>
-              <span className="text-muted-foreground">Monitor real-time data consumption per device with UDI tracking</span>
-            </li>
-            <li className="flex items-start gap-3 text-sm">
-              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/20 flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-violet-600 dark:text-violet-400 font-bold text-xs">3</span>
-              </div>
-              <span className="text-muted-foreground">Use UDI identifiers to send data directly to specific devices</span>
-            </li>
-            <li className="flex items-start gap-3 text-sm">
-              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/20 flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-violet-600 dark:text-violet-400 font-bold text-xs">4</span>
-              </div>
-              <span className="text-muted-foreground">Each device gets a unique @UDI handle for easy identification</span>
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+              Device Management Tips
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3 text-sm">
+                <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">1</span>
+                </div>
+                <span className="text-muted-foreground">Share your data balance seamlessly across all registered devices</span>
+              </li>
+              <li className="flex items-start gap-3 text-sm">
+                <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">2</span>
+                </div>
+                <span className="text-muted-foreground">Monitor real-time data consumption per device with UDI tracking</span>
+              </li>
+              <li className="flex items-start gap-3 text-sm">
+                <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">3</span>
+                </div>
+                <span className="text-muted-foreground">Use UDI identifiers to send data directly to specific devices</span>
+              </li>
+              <li className="flex items-start gap-3 text-sm">
+                <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">4</span>
+                </div>
+                <span className="text-muted-foreground">Each device gets a unique @UDI handle for easy identification</span>
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
     </div>
   );
 }

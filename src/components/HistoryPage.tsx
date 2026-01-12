@@ -103,63 +103,63 @@ export function HistoryPage({ onNavigate }: HistoryPageProps) {
     t.network?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const TransactionCard = ({ transaction, index }: { transaction: TransactionRecord; index: number }) => {
-    const StatusIcon = getStatusIcon(transaction.status);
-    return (
-      <div 
-        className={cn(
-          "flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border transition-all duration-300 hover:shadow-lg cursor-pointer group stagger-item",
-          transaction.type === 'transfer' 
-            ? "bg-violet-50 dark:bg-violet-950/10 border-violet-200 dark:border-violet-900 hover:border-violet-300 dark:hover:border-violet-800" 
-            : "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900 hover:border-green-300 dark:hover:border-green-800"
-        )}
-      >
-        <div className="flex items-center gap-4 flex-1 mb-4 sm:mb-0">
-          <div className={cn(
-            "w-14 h-14 rounded-xl flex items-center justify-center shadow-md transition-transform group-hover:scale-110",
+    const TransactionCard = ({ transaction, index }: { transaction: TransactionRecord; index: number }) => {
+      const StatusIcon = getStatusIcon(transaction.status);
+      return (
+        <div 
+          className={cn(
+            "flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border transition-all duration-300 hover:shadow-lg cursor-pointer group stagger-item",
             transaction.type === 'transfer' 
-              ? 'bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30' 
-              : 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30'
-          )}>
-            {transaction.type === 'transfer' ? (
-              <Send className="w-7 h-7 text-violet-600 dark:text-violet-400" />
-            ) : (
-              <Download className="w-7 h-7 text-green-600 dark:text-green-400" />
-            )}
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <p className="font-bold text-base capitalize">{transaction.type}</p>
-              <Badge variant="secondary" className={cn("animate-scale-in", getStatusColor(transaction.status))}>
-                <StatusIcon className="w-3 h-3 mr-1" />
-                {transaction.status}
-              </Badge>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {transaction.type === 'transfer' && transaction.recipient && (
-                <span className="font-medium">{transaction.recipient} • {transaction.network} • </span>
+              ? "bg-blue-50 dark:bg-blue-950/10 border-blue-200 dark:border-blue-900 hover:border-blue-300 dark:hover:border-blue-800" 
+              : "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900 hover:border-green-300 dark:hover:border-green-800"
+          )}
+        >
+          <div className="flex items-center gap-4 flex-1 mb-4 sm:mb-0">
+            <div className={cn(
+              "w-14 h-14 rounded-xl flex items-center justify-center shadow-md transition-transform group-hover:scale-110",
+              transaction.type === 'transfer' 
+                ? 'bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30' 
+                : 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30'
+            )}>
+              {transaction.type === 'transfer' ? (
+                <Send className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+              ) : (
+                <Download className="w-7 h-7 text-green-600 dark:text-green-400" />
               )}
-              <span>{new Date(transaction.date).toLocaleString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}</span>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="font-bold text-base capitalize">{transaction.type}</p>
+                <Badge variant="secondary" className={cn("animate-scale-in", getStatusColor(transaction.status))}>
+                  <StatusIcon className="w-3 h-3 mr-1" />
+                  {transaction.status}
+                </Badge>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {transaction.type === 'transfer' && transaction.recipient && (
+                  <span className="font-medium">{transaction.recipient} • {transaction.network} • </span>
+                )}
+                <span>{new Date(transaction.date).toLocaleString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}</span>
+              </div>
             </div>
           </div>
+          <div className="text-right">
+            <p className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              {transaction.amount} GB
+            </p>
+            <p className="text-xs text-muted-foreground font-medium">
+              {transaction.type === 'transfer' ? 'Fee' : 'Points'}: {transaction.fee} PP
+            </p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="font-bold text-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-            {transaction.amount} GB
-          </p>
-          <p className="text-xs text-muted-foreground font-medium">
-            {transaction.type === 'transfer' ? 'Fee' : 'Points'}: {transaction.fee} PP
-          </p>
-        </div>
-      </div>
-    );
-  };
+      );
+    };
 
   return (
     <div className="space-y-6">

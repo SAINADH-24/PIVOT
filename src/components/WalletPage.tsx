@@ -112,7 +112,7 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
         </div>
         <Card className="premium-card">
           <CardContent className="p-12 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </CardContent>
         </Card>
       </div>
@@ -138,20 +138,20 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
 
       {/* Balance Card */}
       <Card className="premium-card border-0 shadow-2xl animate-fade-in-up overflow-hidden" style={{ animationDelay: '0.1s' }}>
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-600" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-indigo-500 to-blue-600" />
         <CardContent className="relative p-8 text-white">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <p className="text-violet-100 mb-2 text-base">Total Balance</p>
+              <p className="text-blue-100 mb-2 text-base">Total Balance</p>
               <h2 className="text-6xl font-bold mb-2">{userPivotPoints.toLocaleString()}</h2>
-              <p className="text-violet-100 text-lg">Pivot Points</p>
+              <p className="text-blue-100 text-lg">Pivot Points</p>
             </div>
             <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center animate-pulse-glow">
               <Coins className="w-10 h-10" />
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <Button className="bg-white text-purple-600 hover:bg-white/90 font-semibold hover-lift">
+            <Button className="bg-white text-blue-600 hover:bg-white/90 font-semibold hover-lift">
               <Plus className="w-4 h-4 mr-2" />
               Buy Points
             </Button>
@@ -166,7 +166,7 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
       <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-white" />
             </div>
             Rewards Tier
@@ -193,7 +193,7 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
               <div>
                 <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                   <div 
-                    className="h-3 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-500"
+                    className="h-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
                     style={{ width: `${Math.min((userPivotPoints / nextTier.points) * 100, 100)}%` }}
                   />
                 </div>
@@ -225,8 +225,8 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
               >
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 flex items-center justify-center shadow-md transition-transform group-hover:scale-110">
-                      <ShoppingBag className="w-7 h-7 text-violet-600 dark:text-violet-400" />
+                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center shadow-md transition-transform group-hover:scale-110">
+                      <ShoppingBag className="w-7 h-7 text-blue-600 dark:text-blue-400" />
                     </div>
                     <Badge variant="secondary" className="font-mono text-sm px-3 py-1">
                       {option.points} PP
@@ -265,7 +265,7 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
                         "flex items-center justify-between p-4 rounded-xl border hover:shadow-md transition-all cursor-pointer stagger-item",
                         transaction.type === 'earned' && "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-900",
                         transaction.type === 'spent' && "bg-red-50 dark:bg-red-950/10 border-red-200 dark:border-red-900",
-                          transaction.type === 'bonus' && "bg-violet-50 dark:bg-violet-950/10 border-violet-200 dark:border-violet-900"
+                          transaction.type === 'bonus' && "bg-blue-50 dark:bg-blue-950/10 border-blue-200 dark:border-blue-900"
                         )}
                       >
                         <div className="flex items-center gap-4">
@@ -273,13 +273,13 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
                             "w-12 h-12 rounded-xl flex items-center justify-center shadow-md",
                             transaction.type === 'earned' && 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30',
                             transaction.type === 'spent' && 'bg-gradient-to-br from-red-100 to-rose-100 dark:from-red-900/30 dark:to-rose-900/30',
-                            transaction.type === 'bonus' && 'bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30'
+                            transaction.type === 'bonus' && 'bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30'
                           )}>
                             <Icon className={cn(
                               "w-6 h-6",
                               transaction.type === 'earned' && 'text-green-600 dark:text-green-400',
                               transaction.type === 'spent' && 'text-red-600 dark:text-red-400',
-                              transaction.type === 'bonus' && 'text-violet-600 dark:text-violet-400'
+                              transaction.type === 'bonus' && 'text-blue-600 dark:text-blue-400'
                             )} />
 
                         </div>

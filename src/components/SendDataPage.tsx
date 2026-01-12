@@ -326,11 +326,11 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
               )}
             </div>
 
-            <Card className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border-violet-200 dark:border-violet-800 hover-scale">
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800 hover-scale">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-base font-semibold">Transfer Fee</span>
-                  <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 font-bold text-lg">
+                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-lg">
                     <Coins className="w-5 h-5" />
                     <span>{pivotPointsFee} PP</span>
                   </div>
@@ -339,7 +339,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
                   <p className="text-sm text-muted-foreground">
                     Fee: 10 Pivot Points per GB • Instant transfer
                   </p>
-                  <p className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                  <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
                     Remaining after transfer: {(userDataBalance - dataAmount[0]).toFixed(1)} GB
                   </p>
                 </div>
@@ -382,7 +382,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Transfer Fee</p>
-                <p className="font-semibold text-base text-violet-600 dark:text-violet-400">{pivotPointsFee} PP</p>
+                <p className="font-semibold text-base text-blue-600 dark:text-blue-400">{pivotPointsFee} PP</p>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Your New Balance</p>

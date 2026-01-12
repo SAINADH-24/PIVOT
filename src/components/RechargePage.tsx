@@ -296,62 +296,62 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
             )}>
               {!hasAISuggestions && (
                 <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
-                  <div className="text-center space-y-3 p-6">
-                    <Lock className="w-12 h-12 mx-auto text-muted-foreground" />
-                    <div>
-                      <h3 className="font-bold text-lg mb-1">Pro Feature</h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        AI suggestions are available on Pro and Unlimited plans
-                      </p>
+                      <div className="text-center space-y-3 p-6">
+                      <Lock className="w-12 h-12 mx-auto text-muted-foreground" />
+                      <div>
+                        <h3 className="font-bold text-lg mb-1">Pro Feature</h3>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          AI suggestions are available on Pro and Unlimited plans
+                        </p>
+                        <Button 
+                          onClick={() => router.push('/pricing')}
+                          className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                        >
+                          Upgrade to Pro
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-lg animate-pulse-glow">
+                      <Sparkles className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
+                          AI Optimized Plan
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                            {aiSuggestion.confidence}% Match
+                          </Badge>
+                        </h4>
+                        <p className="text-sm text-muted-foreground mb-3">{aiSuggestion.reason}</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <span>Avg: {avgDailyUsage} GB/day</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Wifi className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <span>{aiSuggestion.dataMode.toUpperCase()} recommended</span>
+                        </div>
+                      </div>
+                      
                       <Button 
-                        onClick={() => router.push('/pricing')}
-                        className="bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700"
+                        onClick={applyAISuggestion}
+                        className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover-lift"
                       >
-                        Upgrade to Pro
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Apply AI Suggested Plan
                       </Button>
                     </div>
                   </div>
-                </div>
-              )}
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shrink-0 shadow-lg animate-pulse-glow">
-                    <Sparkles className="w-7 h-7 text-white" />
-                  </div>
-                  <div className="flex-1 space-y-3">
-                    <div>
-                      <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
-                        AI Optimized Plan
-                        <Badge variant="secondary" className="bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300">
-                          {aiSuggestion.confidence}% Match
-                        </Badge>
-                      </h4>
-                      <p className="text-sm text-muted-foreground mb-3">{aiSuggestion.reason}</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                        <span>Avg: {avgDailyUsage} GB/day</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Wifi className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                        <span>{aiSuggestion.dataMode.toUpperCase()} recommended</span>
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      onClick={applyAISuggestion}
-                      className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-md hover-lift"
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Apply AI Suggested Plan
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            )}
 
           {/* Plan Configuration */}
           <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
@@ -570,26 +570,26 @@ export function RechargePage({ onNavigate }: RechargePageProps) {
 
               <Separator />
 
-              {/* Total */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-lg">Total Cost</span>
-                  <span className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">₹{totalCost}</span>
+                {/* Total */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-lg">Total Cost</span>
+                    <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">₹{totalCost}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-100 dark:border-blue-900">
+                    <span className="text-sm font-medium text-muted-foreground">Earn Pivot Points</span>
+                    <span className="text-base font-bold text-blue-600 dark:text-blue-400">
+                      +{pivotPointsEarned} PP
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border border-violet-100 dark:border-violet-900">
-                  <span className="text-sm font-medium text-muted-foreground">Earn Pivot Points</span>
-                  <span className="text-base font-bold text-violet-600 dark:text-violet-400">
-                    +{pivotPointsEarned} PP
-                  </span>
-                </div>
-              </div>
 
-              <Button 
-                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white shadow-lg hover-lift" 
-                size="lg"
-                onClick={handleActivatePlan}
-                disabled={!hasCustomBuilder}
-              >
+                <Button 
+                  className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover-lift" 
+                  size="lg"
+                  onClick={handleActivatePlan}
+                  disabled={!hasCustomBuilder}
+                >
                 {hasCustomBuilder ? (
                   <>
                     <Zap className="w-5 h-5 mr-2" />

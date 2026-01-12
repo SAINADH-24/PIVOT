@@ -126,7 +126,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
         </div>
         <Card className="premium-card">
           <CardContent className="p-12 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </CardContent>
         </Card>
       </div>
@@ -157,7 +157,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
         <CardContent className="p-6">
           <div className="flex items-center gap-6">
             <Avatar className="w-20 h-20">
-              <AvatarFallback className="text-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white">
+              <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
                 {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
               </AvatarFallback>
             </Avatar>
@@ -249,7 +249,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
       <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
               <Lock className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -355,7 +355,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border border-violet-100 dark:border-violet-900">
+          <div className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-100 dark:border-blue-900">
             <div>
               <p className="font-semibold text-base mb-1">Enable Two-Factor Authentication</p>
               <p className="text-sm text-muted-foreground">
@@ -365,7 +365,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
             <Switch 
               checked={twoFactorEnabled} 
               onCheckedChange={handleToggle2FA}
-              className="data-[state=checked]:bg-violet-600"
+              className="data-[state=checked]:bg-blue-600"
             />
           </div>
 
@@ -392,8 +392,8 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
                 </RadioGroup>
               </div>
 
-                <div className="p-4 rounded-lg bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900">
-                  <p className="text-sm text-violet-900 dark:text-violet-300">
+                <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
+                  <p className="text-sm text-blue-900 dark:text-blue-300">
                     <strong>Note:</strong> When 2FA is enabled, you'll need to enter a verification code sent to your {twoFactorMethod === 'sms' ? 'phone' : 'email'} each time you log in or perform sensitive operations like data transfers.
                   </p>
                 </div>
