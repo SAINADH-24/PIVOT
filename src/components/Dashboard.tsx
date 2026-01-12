@@ -15,32 +15,68 @@ import {
   TrendingUp,
   ArrowRight,
   History,
-  Settings,
-  Bell
+  Settings
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useUserData } from '@/hooks/useUserData';
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-  const { data: session, isPending: isSessionPending } = useSession();
-  const { userData, transfers, unreadNotifications, loading: isDataLoading } = useUserData();
-  // ...
+  const { data: session, isPending } = useSession();
+
+  if (isPending) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const userName = session?.user?.name || 'User';
+
+    const userDataBalance = session?.user?.dataBalance || 0;
+    const userPivotPoints = session?.user?.pivotPoints || 0;
+
       const kpiCards = [
-        // ...
         {
-          title: 'Total Transfers',
-          value: transfers.length.toString(),
-          icon: ArrowRightLeft,
-          color: 'from-indigo-400 via-blue-500 to-blue-600',
-          change: `${transfers.filter(t => new Date(t.createdAt).getMonth() === new Date().getMonth()).length} this month`,
-          bgGradient: 'from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-indigo-900/10'
-        }
-      ];
+          title: 'Data Balance',
+          value: `${userDataBalance.toFixed(1)} GB`,
+          icon: Database,
+          color: 'from-blue-400 via-blue-500 to-blue-600',
+          change: '+2.5 GB this week',
+          bgGradient: 'from-blue-50/50 to-white dark:from-blue-950/20 dark:to-blue-900/10'
+        },
+        {
+          title: 'Pivot Points',
+          value: userPivotPoints.toLocaleString(),
+          icon: Coins,
+          color: 'from-sky-400 via-blue-500 to-indigo-600',
+          change: '+150 points',
+          bgGradient: 'from-sky-50/50 to-white dark:from-sky-950/20 dark:to-sky-900/10'
+        },
+      {
+        title: 'Active Devices',
+        value: '3',
+        icon: Smartphone,
+        color: 'from-cyan-400 via-blue-500 to-blue-600',
+        change: '2 connected',
+        bgGradient: 'from-cyan-50/50 to-white dark:from-cyan-950/20 dark:to-cyan-900/10'
+      },
+      {
+        title: 'Total Transfers',
+        value: '47',
+        icon: ArrowRightLeft,
+        color: 'from-indigo-400 via-blue-500 to-blue-600',
+        change: '12 this month',
+        bgGradient: 'from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-indigo-900/10'
+      }
+    ];
 
     const quickActions = [
       {
@@ -95,23 +131,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   return (
     <div className="space-y-8">
         {/* Welcome Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
-          <div>
-            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Welcome back, {userName}! 👋
-            </h1>
-            <p className="text-muted-foreground text-lg">Here's your mobile data overview</p>
-          </div>
-          <div className="relative">
-            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl hover-scale">
-              <Bell className="w-6 h-6" />
-              {unreadNotifications > 0 && (
-                <Badge className="absolute -top-2 -right-2 bg-red-500 text-white min-w-[20px] h-5 flex items-center justify-center p-1 rounded-full text-[10px] animate-pulse">
-                  {unreadNotifications}
-                </Badge>
-              )}
-            </Button>
-          </div>
+        <div className="animate-fade-in-up">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            Welcome back, {userName}! 👋
+          </h1>
+          <p className="text-muted-foreground text-lg">Here's your mobile data overview</p>
         </div>
 
       {/* KPI Cards */}
