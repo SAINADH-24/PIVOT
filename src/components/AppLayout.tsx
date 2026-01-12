@@ -11,10 +11,11 @@ import {
   User, 
   Menu,
   X,
-    LogOut,
-    CreditCard,
-    ShieldCheck
-  } from 'lucide-react';
+  LogOut,
+  CreditCard,
+  ShieldCheck,
+  Bell
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { authClient, useSession } from '@/lib/auth-client';
@@ -22,6 +23,12 @@ import { toast } from 'sonner';
 import { PlanBadge } from '@/components/PlanBadge';
 import { useRouter } from 'next/navigation';
 import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Badge } from '@/components/ui/badge';
 
 interface AppLayoutProps {
   currentPage: string;
@@ -35,8 +42,7 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
 
-  // Initialize real-time notifications for the receiver popup feature
-  useRealtimeNotifications();
+  const { notifications, unreadCount, markAllAsRead } = useRealtimeNotifications();
 
   const navigation = [
     { name: 'Dashboard', href: 'dashboard', icon: Home },
@@ -89,13 +95,62 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
         >
           {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </Button>
-          <div className="ml-3 flex items-center gap-2">
-            <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
-            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              P!VOT
-            </h1>
-          </div>
-        <div className="ml-auto">
+        <div className="ml-3 flex items-center gap-2">
+          <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            P!VOT
+          </h1>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="end">
+              <div className="p-4 border-b">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Notifications</h3>
+                  {unreadCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+                      Mark all read
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground">
+                    No new notifications
+                  </div>
+                ) : (
+                  notifications.map((notification) => (
+                    <div key={notification.id} className="p-4 border-b hover:bg-accent/50 transition-colors">
+                      <div className="flex items-start gap-3">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full mt-2 shrink-0",
+                          notification.type === 'data_received' ? 'bg-green-500' : 'bg-blue-500'
+                        )} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{notification.title}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{notification.message}</p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {new Date(notification.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           <PlanBadge />
         </div>
       </div>
@@ -106,17 +161,66 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
         "lg:translate-x-0",
         sidebarOpen ? "translate-x-0 animate-slide-in-left" : "-translate-x-full"
       )}>
-          <div className="p-6 flex-1 flex flex-col">
-              <div className="flex items-center gap-3 mb-10">
-                <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain shadow-lg hover:shadow-xl transition-shadow hover-scale" />
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  P!VOT
-                </h1>
-              </div>
+        <div className="p-6 flex-1 flex flex-col">
+          <div className="flex items-center gap-3 mb-10">
+            <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain shadow-lg hover:shadow-xl transition-shadow hover-scale" />
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              P!VOT
+            </h1>
+          </div>
 
-          {/* Plan Badge - Desktop */}
-          <div className="hidden lg:flex justify-center mb-6">
+          {/* Plan Badge and Notification Bell - Desktop */}
+          <div className="hidden lg:flex justify-between items-center mb-6">
             <PlanBadge />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="start">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Notifications</h3>
+                    {unreadCount > 0 && (
+                      <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+                        Mark all read
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-muted-foreground">
+                      No new notifications
+                    </div>
+                  ) : (
+                    notifications.map((notification) => (
+                      <div key={notification.id} className="p-4 border-b hover:bg-accent/50 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full mt-2 shrink-0",
+                            notification.type === 'data_received' ? 'bg-green-500' : 'bg-blue-500'
+                          )} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm">{notification.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{notification.message}</p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(notification.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <nav className="space-y-2 flex-1">
@@ -124,25 +228,25 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
               const Icon = item.icon;
               const isActive = currentPage === item.href;
               return (
-                  <button
-                    key={item.name}
-                    onClick={() => {
-                      if (item.href === 'admin') {
-                        router.push('/admin');
-                      } else {
-                        onNavigate(item.href);
-                      }
-                      setSidebarOpen(false);
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-                      isActive 
-                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md" 
-                        : "hover:bg-accent text-muted-foreground hover:text-foreground hover:shadow-sm",
-                      "stagger-item"
-                    )}
-                    style={{ animationDelay: `${index * 0.05}s` }}
-                  >
+                <button
+                  key={item.name}
+                  onClick={() => {
+                    if (item.href === 'admin') {
+                      router.push('/admin');
+                    } else {
+                      onNavigate(item.href);
+                    }
+                    setSidebarOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+                    isActive 
+                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md" 
+                      : "hover:bg-accent text-muted-foreground hover:text-foreground hover:shadow-sm",
+                    "stagger-item"
+                  )}
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
                   <Icon className={cn(
                     "w-5 h-5 transition-transform",
                     isActive ? "" : "group-hover:scale-110"
@@ -180,6 +284,11 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
               <p className="text-xs text-muted-foreground truncate">
                 {session?.user?.email || ''}
               </p>
+              {session?.user?.udi && (
+                <Badge variant="secondary" className="mt-2 text-xs font-mono">
+                  {session.user.udi}
+                </Badge>
+              )}
             </div>
             <Button
               onClick={handleSignOut}

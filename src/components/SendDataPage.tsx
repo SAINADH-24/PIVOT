@@ -1,254 +1,108 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { useSession } from '@/lib/auth-client';
-import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle, QrCode, Smartphone, Laptop, Tablet, Lock } from 'lucide-react';
+import { Send, Coins, CheckCircle2, ArrowLeft, AlertCircle, QrCode, User, Loader2, Lock } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { QrScanner } from '@/components/QrScanner';
-import { useCustomer } from 'autumn-js/react';
-import { useRouter } from 'next/navigation';
 
 interface SendDataPageProps {
   onNavigate: (page: string) => void;
 }
 
-interface ValidationErrors {
-  phone?: string;
-  network?: string;
-  amount?: string;
-}
-
-// ========== UDI DEVICE INTERFACE ==========
-interface UdiDevice {
+interface RecipientInfo {
   id: string;
   name: string;
-  type: 'phone' | 'laptop' | 'tablet';
-  status: 'active' | 'inactive';
-  phoneNumber: string;
-  udiId: string;
+  udi: string | null;
+  email: string;
 }
-
-// QR Code parsing helper functions
-function parseQrCodeData(qrData: string): { phone?: string; udi?: string; network?: string } {
-  try {
-    // Try parsing as JSON first
-    const jsonData = JSON.parse(qrData);
-    return {
-      phone: jsonData.phone || jsonData.number || jsonData.phoneNumber,
-      udi: jsonData.udi || jsonData.id || jsonData.udiId,
-      network: jsonData.network || jsonData.provider
-    };
-  } catch {
-    // Not JSON, try other formats
-    
-    // Format: phone:+1234567890,udi:@user-phone,network:Jio
-    if (qrData.includes(':') && qrData.includes(',')) {
-      const result: { phone?: string; udi?: string; network?: string } = {};
-      const parts = qrData.split(',');
-      
-      parts.forEach(part => {
-        const [key, value] = part.split(':');
-        const normalizedKey = key.trim().toLowerCase();
-        
-        if (normalizedKey === 'phone' || normalizedKey === 'number') {
-          result.phone = value.trim();
-        } else if (normalizedKey === 'udi' || normalizedKey === 'id') {
-          result.udi = value.trim();
-        } else if (normalizedKey === 'network' || normalizedKey === 'provider') {
-          result.network = value.trim();
-        }
-      });
-      
-      return result;
-    }
-    
-    // Plain phone number detection
-    const phoneRegex = /^\+?\d{10,15}$/;
-    if (phoneRegex.test(qrData.trim())) {
-      return { phone: qrData.trim() };
-    }
-    
-    // UDI handle detection (starts with @)
-    if (qrData.trim().startsWith('@')) {
-      return { udi: qrData.trim() };
-    }
-    
-    // URL format: pivotapp://send?phone=+1234567890&udi=@user&network=Jio
-    if (qrData.includes('pivotapp://') || qrData.includes('https://')) {
-      try {
-        const url = new URL(qrData.replace('pivotapp://', 'https://'));
-        const params = new URLSearchParams(url.search);
-        
-        return {
-          phone: params.get('phone') || params.get('number') || undefined,
-          udi: params.get('udi') || params.get('id') || undefined,
-          network: params.get('network') || params.get('provider') || undefined
-        };
-      } catch {
-        // Invalid URL format
-      }
-    }
-    
-    return {};
-  }
-}
-
-function validatePhoneNumber(phone: string): boolean {
-  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
-  return /^\+?\d{10,15}$/.test(cleaned);
-}
-
-// ========== MOCK UDI DEVICES DATA ==========
-// In production, this would come from a backend API or shared state
-const MOCK_UDI_DEVICES: UdiDevice[] = [
-  {
-    id: '1',
-    name: 'iPhone 14 Pro',
-    type: 'phone',
-    status: 'active',
-    phoneNumber: '+1 234 567 8900',
-    udiId: '@sainadh-iphone'
-  },
-  {
-    id: '2',
-    name: 'MacBook Pro',
-    type: 'laptop',
-    status: 'active',
-    phoneNumber: '+1 234 567 8901',
-    udiId: '@sainadh-macbook'
-  },
-  {
-    id: '3',
-    name: 'iPad Air',
-    type: 'tablet',
-    status: 'inactive',
-    phoneNumber: '+1 234 567 8902',
-    udiId: '@sainadh-ipad'
-  }
-];
 
 export function SendDataPage({ onNavigate }: SendDataPageProps) {
   const { data: session, isPending } = useSession();
-  const { customer, check, track, refetch, isLoading: isCustomerLoading } = useCustomer();
-  const router = useRouter();
-  const [recipientPhone, setRecipientPhone] = useState('');
-  const [recipientUdi, setRecipientUdi] = useState('');
-  const [network, setNetwork] = useState('');
+  const [recipientQuery, setRecipientQuery] = useState('');
+  const [recipientInfo, setRecipientInfo] = useState<RecipientInfo | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [lookupError, setLookupError] = useState('');
   const [dataAmount, setDataAmount] = useState([1]);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showQrScanner, setShowQrScanner] = useState(false);
-  // ========== UDI DEVICE SELECTOR STATE ==========
-  const [showUdiDeviceSelector, setShowUdiDeviceSelector] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [transferSuccess, setTransferSuccess] = useState(false);
-  const [errors, setErrors] = useState<ValidationErrors>({});
-  const [touched, setTouched] = useState({ phone: false, network: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock PIN stored in state (in production, this would be securely stored)
   const MOCK_PIN = '1234';
-
-  const networks = ['Airtel', 'Jio', 'Vi', 'BSNL'];
-  
-  // Calculate pivot points fee (10 points per GB)
   const pivotPointsFee = dataAmount[0] * 10;
-  
-  // Get user data balance and pivot points from session
   const userDataBalance = session?.user?.dataBalance || 0;
   const userPivotPoints = session?.user?.pivotPoints || 0;
-  
-  // Validation functions
-  const validatePhone = (phone: string): string | undefined => {
-    if (!phone) return 'Phone number is required';
-    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
-    if (!/^\+?\d{10,15}$/.test(cleaned)) {
-      return 'Invalid phone number format (10-15 digits)';
+
+  const lookupRecipient = useCallback(async (query: string) => {
+    if (!query || query.trim().length < 2) {
+      setRecipientInfo(null);
+      setLookupError('');
+      return;
     }
-    return undefined;
-  };
 
-  const validateNetwork = (net: string): string | undefined => {
-    if (!net) return 'Network provider is required';
-    return undefined;
-  };
+    setIsLookingUp(true);
+    setLookupError('');
 
-  const validateAmount = (amount: number): string | undefined => {
-    if (amount <= 0) return 'Amount must be greater than 0';
-    if (!session?.user) return 'User not found';
-    if (amount > userDataBalance) {
-      return `Insufficient data balance (Available: ${userDataBalance.toFixed(1)} GB)`;
+    try {
+      const response = await fetch(`/api/users/lookup?q=${encodeURIComponent(query.trim())}`);
+      const data = await response.json();
+
+      if (data.found && data.user) {
+        setRecipientInfo(data.user);
+        setLookupError('');
+      } else {
+        setRecipientInfo(null);
+        setLookupError(data.error || 'User not found');
+      }
+    } catch (error) {
+      setRecipientInfo(null);
+      setLookupError('Failed to lookup user');
+    } finally {
+      setIsLookingUp(false);
     }
-    if (pivotPointsFee > userPivotPoints) {
-      return `Insufficient Pivot Points (Required: ${pivotPointsFee} PP, Available: ${userPivotPoints} PP)`;
-    }
-    return undefined;
-  };
+  }, []);
 
-  const validateForm = (): boolean => {
-    const newErrors: ValidationErrors = {
-      phone: validatePhone(recipientPhone),
-      network: validateNetwork(network),
-      amount: validateAmount(dataAmount[0])
-    };
-    setErrors(newErrors);
-    return !newErrors.phone && !newErrors.network && !newErrors.amount;
-  };
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (recipientQuery.trim().length >= 2) {
+        lookupRecipient(recipientQuery);
+      } else {
+        setRecipientInfo(null);
+        setLookupError('');
+      }
+    }, 500);
 
-  const handlePhoneChange = (value: string) => {
-    setRecipientPhone(value);
-    if (touched.phone) {
-      setErrors(prev => ({ ...prev, phone: validatePhone(value) }));
-    }
-  };
-
-  const handleNetworkChange = (value: string) => {
-    setNetwork(value);
-    if (touched.network) {
-      setErrors(prev => ({ ...prev, network: validateNetwork(value) }));
-    }
-  };
-
-  const handleAmountChange = (value: number[]) => {
-    setDataAmount(value);
-    setErrors(prev => ({ ...prev, amount: validateAmount(value[0]) }));
-  };
+    return () => clearTimeout(debounceTimer);
+  }, [recipientQuery, lookupRecipient]);
 
   const handleTransfer = async () => {
-    setTouched({ phone: true, network: true });
-    if (!validateForm()) {
-      toast.error('Please fix all errors before submitting');
+    if (!recipientInfo) {
+      toast.error('Please enter a valid recipient');
       return;
     }
-    
-    // FEATURE GATE: Check data transfer allowance
-    const { data } = await check({ 
-      featureId: 'data_transfers', 
-      requiredBalance: dataAmount[0] 
-    });
-    
-    if (!data.allowed) {
-      // Show upgrade prompt
-      toast.error('Data transfer limit reached. Upgrade your plan for more transfers!', {
-        action: {
-          label: 'Upgrade',
-          onClick: () => router.push('/pricing')
-        },
-        duration: 5000
-      });
+
+    if (dataAmount[0] > userDataBalance) {
+      toast.error('Insufficient data balance');
       return;
     }
-    
+
+    if (pivotPointsFee > userPivotPoints) {
+      toast.error('Insufficient Pivot Points for fee');
+      return;
+    }
+
     setShowConfirmation(true);
   };
 
@@ -260,16 +114,14 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
   };
 
   const handlePinChange = (value: string) => {
-    // Only allow digits and max 4 characters
     const cleaned = value.replace(/\D/g, '').slice(0, 4);
     setPin(cleaned);
     setPinError('');
   };
 
   const confirmTransfer = async () => {
-    if (!session?.user) return;
-    
-    // Validate PIN
+    if (!session?.user || !recipientInfo) return;
+
     if (pin !== MOCK_PIN) {
       setPinError('Invalid PIN. Please try again.');
       setPin('');
@@ -277,16 +129,14 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
     }
 
     setIsSubmitting(true);
-    
+
     try {
       const response = await fetch('/api/data/transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          recipientPhone,
-          recipientUdi,
+          recipientIdentifier: recipientInfo.udi || recipientInfo.email,
           amount: dataAmount[0],
-          network,
           fee: pivotPointsFee
         })
       });
@@ -297,32 +147,19 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
         throw new Error(result.error || 'Transfer failed');
       }
 
-      // Track usage in Autumn
-      await track({ 
-        featureId: 'data_transfers', 
-        value: dataAmount[0],
-        idempotencyKey: `data-transfer-${Date.now()}`
-      });
-      
-      // Refresh data
-      await refetch();
-
       setShowPinDialog(false);
       setTransferSuccess(true);
 
-      toast.success(`Data transfer successful! ${dataAmount[0]} GB sent to ${recipientPhone}`);
+      toast.success(`Data transfer successful! ${dataAmount[0]} GB sent to ${recipientInfo.name}`);
 
-      // Reset form after delay
       setTimeout(() => {
         setTransferSuccess(false);
-        setRecipientPhone('');
-        setRecipientUdi('');
-        setNetwork('');
+        setRecipientQuery('');
+        setRecipientInfo(null);
         setDataAmount([1]);
-        setErrors({});
-        setTouched({ phone: false, network: false });
         setIsSubmitting(false);
         setPin('');
+        window.location.reload();
       }, 2000);
     } catch (error: any) {
       toast.error(error.message);
@@ -335,126 +172,41 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
     setShowQrScanner(true);
   };
 
-  const handleQrScanSuccess = (decodedText: string, decodedResult: any) => {
-    const parsed = parseQrCodeData(decodedText);
-    
-    let updated = false;
-    
-    // Autofill phone number
-    if (parsed.phone && validatePhoneNumber(parsed.phone)) {
-      setRecipientPhone(parsed.phone);
-      updated = true;
-    }
-    
-    // Autofill UDI
-    if (parsed.udi) {
-      setRecipientUdi(parsed.udi);
-      updated = true;
-    }
-    
-    // Autofill network
-    if (parsed.network && networks.includes(parsed.network)) {
-      setNetwork(parsed.network);
-      updated = true;
-    }
-    
-    if (updated) {
-      const details = [];
-      if (parsed.phone) details.push(parsed.phone);
-      if (parsed.udi) details.push(parsed.udi);
-      if (parsed.network) details.push(parsed.network);
-      
-      toast.success(`Scanned: ${details.join(' • ')} — filled into recipient`);
-      
-      // Clear errors
-      setErrors({});
-      setTouched({ phone: false, network: false });
-    } else {
-      toast.error('Could not extract valid data from QR code');
-    }
-    
+  const handleQrScanSuccess = (decodedText: string) => {
+    setRecipientQuery(decodedText.trim());
     setShowQrScanner(false);
+    toast.success('QR code scanned! Looking up user...');
   };
 
-  // ========== UDI DEVICE SELECTOR HANDLERS ==========
-  /**
-   * Handles selecting a UDI device from the list
-   * Autofills phone number and UDI identifier
-   */
-  const handleSelectUdiDevice = (device: UdiDevice) => {
-    // Check if device is disabled (inactive)
-    if (device.status === 'inactive') {
-      toast.error(`${device.name} is currently inactive and cannot receive data`);
-      return;
-    }
-
-    // Autofill phone number and UDI
-    setRecipientPhone(device.phoneNumber);
-    setRecipientUdi(device.udiId);
-    
-    // Clear errors
-    setErrors({});
-    setTouched({ phone: false, network: false });
-    
-    // Close dialog
-    setShowUdiDeviceSelector(false);
-    
-    // Show success toast
-    toast.success(`Selected ${device.name} — ${device.phoneNumber} • ${device.udiId}`);
-  };
-
-  /**
-   * Returns the appropriate device icon based on type
-   */
-  const getDeviceIcon = (type: string) => {
-    switch (type) {
-      case 'phone':
-        return Smartphone;
-      case 'laptop':
-        return Laptop;
-      case 'tablet':
-        return Tablet;
-      default:
-        return Smartphone;
-    }
-  };
-
-  const isFormValid = !errors.phone && !errors.network && !errors.amount && recipientPhone && network;
-
-    // Show loading while checking session or customer data
-    if (isPending || isCustomerLoading) {
-      return (
-        <div className="space-y-6 max-w-3xl mx-auto">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">Send Data</h1>
-              <p className="text-muted-foreground">Loading...</p>
-            </div>
+  if (isPending) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => onNavigate('dashboard')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Send Data</h1>
+            <p className="text-muted-foreground">Loading...</p>
           </div>
-          <Card className="premium-card">
-            <CardContent className="p-12 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </CardContent>
-          </Card>
         </div>
-      );
-    }
+        <Card className="premium-card">
+          <CardContent className="p-12 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  // Get usage info for display
-  const dataTransferFeature = customer?.features?.['data_transfers'];
-  const remainingTransfers = dataTransferFeature?.balance || 0;
-  const totalTransfers = dataTransferFeature?.included_usage || 0;
-  const isUnlimited = !dataTransferFeature || dataTransferFeature.unlimited;
+  const isFormValid = recipientInfo && dataAmount[0] <= userDataBalance && pivotPointsFee <= userPivotPoints;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-4 animate-fade-in-up">
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => onNavigate('dashboard')}
           className="hover-scale"
         >
@@ -468,20 +220,10 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
 
       <Card className="premium-card hover-lift animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Peer-to-Peer Data Transfer</CardTitle>
-              <CardDescription>Send mobile data instantly using Pivot Points</CardDescription>
-            </div>
-            {!isUnlimited && (
-              <Badge variant="secondary" className="font-mono">
-                {remainingTransfers}/{totalTransfers} GB
-              </Badge>
-            )}
-          </div>
+          <CardTitle>Peer-to-Peer Data Transfer</CardTitle>
+          <CardDescription>Send mobile data instantly to any registered P!VOT user</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Current Balance */}
           <div className="grid grid-cols-2 gap-4 p-5 rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/20 dark:to-sky-950/20 border border-blue-100 dark:border-blue-900">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground font-medium">Available Data</p>
@@ -497,24 +239,19 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
             </div>
           </div>
 
-          {/* Transfer Form */}
           <div className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="recipient" className="text-base font-semibold">
-                Recipient Phone Number / UDI *
+                Recipient (UDI, Email, or Phone)
               </Label>
               <div className="flex gap-2">
                 <Input
                   id="recipient"
-                  type="tel"
-                  placeholder="+1 234 567 8900 or @user-udi"
-                  value={recipientPhone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  onBlur={() => setTouched(prev => ({ ...prev, phone: true }))}
-                  className={cn(
-                    "h-12 text-base transition-all flex-1",
-                    errors.phone && touched.phone && "border-destructive focus-visible:ring-destructive animate-shake"
-                  )}
+                  type="text"
+                  placeholder="Enter UDI (e.g., UDI-ABC123), email, or phone"
+                  value={recipientQuery}
+                  onChange={(e) => setRecipientQuery(e.target.value)}
+                  className="h-12 text-base flex-1"
                 />
                 <Button
                   type="button"
@@ -527,75 +264,51 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
                   <QrCode className="w-5 h-5" />
                 </Button>
               </div>
-              {errors.phone && touched.phone && (
-                <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.phone}</span>
-                </div>
-              )}
-              {recipientUdi && (
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="font-mono">
-                    {recipientUdi}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">UDI Identifier</span>
-                </div>
-              )}
-              
-              {/* ========== "CHOOSE FROM MY UDI DEVICES" BUTTON ========== */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full mt-2 hover-scale"
-                onClick={() => setShowUdiDeviceSelector(true)}
-              >
-                <Smartphone className="w-4 h-4 mr-2" />
-                Choose from My UDI Devices
-              </Button>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="network" className="text-base font-semibold">
-                Network Provider *
-              </Label>
-              <Select value={network} onValueChange={handleNetworkChange}>
-                <SelectTrigger 
-                  id="network"
-                  className={cn(
-                    "h-12 text-base transition-all",
-                    errors.network && touched.network && "border-destructive focus-visible:ring-destructive"
-                  )}
-                  onBlur={() => setTouched(prev => ({ ...prev, network: true }))}
-                >
-                  <SelectValue placeholder="Select network" />
-                </SelectTrigger>
-                <SelectContent>
-                  {networks.map((net) => (
-                    <SelectItem key={net} value={net} className="text-base">
-                      {net}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.network && touched.network && (
+              {isLookingUp && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Looking up user...</span>
+                </div>
+              )}
+
+              {lookupError && !isLookingUp && (
                 <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
                   <AlertCircle className="w-4 h-4" />
-                  <span>{errors.network}</span>
+                  <span>{lookupError}</span>
+                </div>
+              )}
+
+              {recipientInfo && !isLookingUp && (
+                <div className="p-4 rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 animate-fade-in-up">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                      <User className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-green-800 dark:text-green-200">{recipientInfo.name}</p>
+                      <p className="text-sm text-green-600 dark:text-green-400">
+                        {recipientInfo.udi || recipientInfo.email}
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="ml-auto bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                      Verified
+                    </Badge>
+                  </div>
                 </div>
               )}
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Data Amount (GB) *</Label>
+                <Label className="text-base font-semibold">Data Amount (GB)</Label>
                 <Badge variant="secondary" className="font-mono text-base px-3 py-1">
                   {dataAmount[0]} GB
                 </Badge>
               </div>
               <Slider
                 value={dataAmount}
-                onValueChange={handleAmountChange}
+                onValueChange={setDataAmount}
                 min={0.5}
                 max={Math.min(10, userDataBalance || 10)}
                 step={0.5}
@@ -605,15 +318,14 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
                 <span>0.5 GB</span>
                 <span>{Math.min(10, userDataBalance || 10)} GB</span>
               </div>
-              {errors.amount && (
-                <div className="flex items-center gap-2 text-sm text-destructive animate-fade-in-up">
+              {dataAmount[0] > userDataBalance && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
                   <AlertCircle className="w-4 h-4" />
-                  <span>{errors.amount}</span>
+                  <span>Insufficient data balance</span>
                 </div>
               )}
             </div>
 
-            {/* Fee Calculation */}
             <Card className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 border-violet-200 dark:border-violet-800 hover-scale">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-3">
@@ -635,8 +347,8 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
             </Card>
           </div>
 
-          <Button 
-            className="w-full h-12 text-base font-semibold hover-lift" 
+          <Button
+            className="w-full h-12 text-base font-semibold hover-lift"
             size="lg"
             onClick={handleTransfer}
             disabled={!isFormValid || isSubmitting}
@@ -647,104 +359,6 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
         </CardContent>
       </Card>
 
-      {/* ========== UDI DEVICE SELECTOR DIALOG ========== */}
-      <Dialog open={showUdiDeviceSelector} onOpenChange={setShowUdiDeviceSelector}>
-        <DialogContent className="animate-scale-in max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">Choose from My UDI Devices</DialogTitle>
-            <DialogDescription className="text-base">
-              Select a device to autofill recipient information
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4 max-h-[60vh] overflow-y-auto">
-            <div className="space-y-3">
-              {MOCK_UDI_DEVICES.map((device) => {
-                const Icon = getDeviceIcon(device.type);
-                const isDisabled = device.status === 'inactive';
-                
-                return (
-                  <button
-                    key={device.id}
-                    onClick={() => handleSelectUdiDevice(device)}
-                    disabled={isDisabled}
-                    className={cn(
-                      "w-full p-4 rounded-xl border-2 transition-all text-left",
-                      "hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/20",
-                      "focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2",
-                      isDisabled && "opacity-50 cursor-not-allowed hover:border-border hover:bg-transparent",
-                      !isDisabled && "hover-lift"
-                    )}
-                    title={isDisabled ? "This device is inactive and cannot receive data" : `Select ${device.name}`}
-                  >
-                    <div className="flex items-center gap-4">
-                      {/* Device Icon */}
-                      <div className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
-                        device.status === 'active' 
-                          ? 'bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30'
-                          : 'bg-gray-100 dark:bg-gray-800'
-                      )}>
-                        <Icon className={cn(
-                          "w-6 h-6",
-                          device.status === 'active'
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-gray-400'
-                        )} />
-                      </div>
-                      
-                      {/* Device Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-base truncate">{device.name}</h3>
-                          <Badge 
-                            variant={device.status === 'active' ? 'default' : 'secondary'}
-                            className={cn(
-                              "text-xs",
-                              device.status === 'active' && 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                            )}
-                          >
-                            {device.status}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-medium">Phone:</span> {device.phoneNumber}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-medium">UDI:</span> <span className="font-mono">{device.udiId}</span>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Disabled tooltip indicator */}
-                    {isDisabled && (
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <p className="text-xs text-muted-foreground italic">
-                          ⚠️ Device is inactive and cannot receive data transfers
-                        </p>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowUdiDeviceSelector(false)}
-              className="hover-scale"
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmation Dialog */}
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <DialogContent className="animate-scale-in">
           <DialogHeader>
@@ -757,16 +371,10 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Recipient</p>
-                <p className="font-semibold text-base">{recipientPhone}</p>
-                {recipientUdi && (
-                  <Badge variant="secondary" className="font-mono text-xs mt-1">
-                    {recipientUdi}
-                  </Badge>
-                )}
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Network</p>
-                <p className="font-semibold text-base">{network}</p>
+                <p className="font-semibold text-base">{recipientInfo?.name}</p>
+                <Badge variant="secondary" className="font-mono text-xs mt-1">
+                  {recipientInfo?.udi || recipientInfo?.email}
+                </Badge>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Data Amount</p>
@@ -776,17 +384,21 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
                 <p className="text-sm text-muted-foreground">Transfer Fee</p>
                 <p className="font-semibold text-base text-violet-600 dark:text-violet-400">{pivotPointsFee} PP</p>
               </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Your New Balance</p>
+                <p className="font-semibold text-base">{(userDataBalance - dataAmount[0]).toFixed(1)} GB</p>
+              </div>
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowConfirmation(false)}
               className="hover-scale"
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleConfirmClick}
               className="hover-scale"
             >
@@ -796,18 +408,17 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* PIN Confirmation Dialog */}
       <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
         <DialogContent className="animate-scale-in max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Confirm Transfer</DialogTitle>
+            <DialogTitle className="text-2xl">Enter PIN</DialogTitle>
             <DialogDescription className="text-base">
-              Enter your 4-digit PIN to confirm this data transfer
+              Enter your 4-digit PIN to confirm this transfer
             </DialogDescription>
           </DialogHeader>
           <div className="py-6 space-y-6">
             <div className="space-y-3">
-              <Label htmlFor="pin" className="text-base font-semibold">4-Digit PIN *</Label>
+              <Label htmlFor="pin" className="text-base font-semibold">4-Digit PIN</Label>
               <Input
                 id="pin"
                 type="password"
@@ -834,8 +445,8 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowPinDialog(false);
                 setPin('');
@@ -846,7 +457,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={confirmTransfer}
               disabled={isSubmitting || pin.length !== 4}
               className="hover-scale"
@@ -857,18 +468,16 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* QR Scanner Dialog */}
       <QrScanner
         open={showQrScanner}
         onOpenChange={setShowQrScanner}
         onScanSuccess={handleQrScanSuccess}
         title="Scan Receiver QR"
-        description="Point your camera at the receiver's QR code or upload an image."
+        description="Point your camera at the receiver's QR code."
         userPhone={session?.user?.phoneNumber}
         userUdi={session?.user?.udi}
       />
 
-      {/* Success Dialog */}
       <Dialog open={transferSuccess} onOpenChange={setTransferSuccess}>
         <DialogContent className="animate-scale-in">
           <div className="text-center py-8">
@@ -877,7 +486,7 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
             </div>
             <DialogTitle className="text-3xl mb-3">Transfer Successful!</DialogTitle>
             <DialogDescription className="text-lg">
-              {dataAmount[0]} GB has been sent to {recipientPhone}
+              {dataAmount[0]} GB has been sent to {recipientInfo?.name}
             </DialogDescription>
           </div>
         </DialogContent>

@@ -1,45 +1,70 @@
 "use client";
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useSession } from '@/lib/auth-client';
 import { toast } from 'sonner';
 
+interface Notification {
+  id: number;
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  createdAt: string;
+}
+
 export function useRealtimeNotifications() {
   const { data: session } = useSession();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchNotifications = useCallback(async () => {
     if (!session?.user) return;
 
     try {
-      const response = await fetch('/api/notifications');
+      const response = await fetch('/api/user-notifications?unreadOnly=true');
       const data = await response.json();
 
       if (data.notifications && data.notifications.length > 0) {
-        for (const notification of data.notifications) {
-          // Show popup/toast
+        const newNotifications = data.notifications.filter(
+          (n: Notification) => !notifications.some(existing => existing.id === n.id)
+        );
+
+        for (const notification of newNotifications) {
+          const isDataReceived = notification.type === 'data_received';
+          
           toast(notification.title, {
             description: notification.message,
-            duration: 10000, // Show for 10 seconds
+            duration: isDataReceived ? 15000 : 10000,
             action: {
-              label: 'Mark as Read',
+              label: 'Dismiss',
               onClick: () => markAsRead(notification.id)
             },
+            style: isDataReceived ? {
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              border: 'none',
+            } : undefined,
           });
 
-          // Mark as read immediately or let user click? 
-          // User said "by giving an popup", so we show the popup.
-          // For now, let's mark it as read so it doesn't pop up again on next poll.
           await markAsRead(notification.id);
         }
+
+        setNotifications(data.notifications);
+        setUnreadCount(data.notifications.length);
+      } else {
+        setNotifications([]);
+        setUnreadCount(0);
       }
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     }
-  }, [session?.user]);
+  }, [session?.user, notifications]);
 
   const markAsRead = async (id: number) => {
     try {
-      await fetch('/api/notifications', {
+      await fetch('/api/user-notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notificationId: id })
@@ -49,15 +74,29 @@ export function useRealtimeNotifications() {
     }
   };
 
+  const markAllAsRead = async () => {
+    try {
+      await fetch('/api/user-notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAllRead: true })
+      });
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
+  };
+
   useEffect(() => {
     if (!session?.user) return;
 
-    // Initial fetch
     fetchNotifications();
 
-    // Poll every 5 seconds for "real-time" feel
     const interval = setInterval(fetchNotifications, 5000);
 
     return () => clearInterval(interval);
-  }, [session?.user, fetchNotifications]);
+  }, [session?.user]);
+
+  return { notifications, unreadCount, markAsRead, markAllAsRead, refetch: fetchNotifications };
 }

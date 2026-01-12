@@ -96,6 +96,28 @@ export const notifications = sqliteTable('notifications', {
   createdAt: text('created_at').notNull(),
 });
 
+// Data Transfers table for Better Auth users (string IDs)
+export const dataTransfers = sqliteTable('data_transfers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  senderId: text('sender_id').notNull().references(() => user.id),
+  receiverId: text('receiver_id').notNull().references(() => user.id),
+  amount: real('amount').notNull(),
+  fee: integer('fee').notNull().default(0),
+  status: text('status').notNull().default('completed'),
+  createdAt: text('created_at').notNull(),
+});
+
+// User Notifications table for Better Auth users (string IDs)
+export const userNotifications = sqliteTable('user_notifications', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull().references(() => user.id),
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  type: text('type').notNull(),
+  read: integer('read', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull(),
+});
+
 
 // Auth tables for better-auth
 export const user = sqliteTable("user", {
