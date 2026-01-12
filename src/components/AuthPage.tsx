@@ -45,8 +45,8 @@ export function AuthPage() {
     
     toast.success('Successfully logged in!');
     setIsLoading(false);
-    // Use router.push for faster transition
-    router.refresh();
+    // Force a full reload to ensure session is recognized
+    window.location.replace("/");
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -101,7 +101,7 @@ export function AuthPage() {
 
     toast.success("Successfully logged in!");
     setIsLoading(false);
-    router.refresh();
+    window.location.replace("/");
   };
 
   return (
