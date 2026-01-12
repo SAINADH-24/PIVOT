@@ -87,12 +87,12 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card/80 backdrop-blur-lg border-b z-50 flex items-center px-4 shadow-sm">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="hover:bg-accent transition-colors"
-        >
+            <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          >
           {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </Button>
         <div className="ml-3 flex items-center gap-2">
@@ -174,7 +174,7 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
             <PlanBadge />
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
+                <Button variant="ghost" size="icon" className="relative hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                   <Bell className="w-5 h-5" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
@@ -201,7 +201,7 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
                     </div>
                   ) : (
                     notifications.map((notification) => (
-                      <div key={notification.id} className="p-4 border-b hover:bg-accent/50 transition-colors">
+                      <div key={notification.id} className="p-4 border-b hover:bg-sidebar-accent transition-colors">
                         <div className="flex items-start gap-3">
                           <div className={cn(
                             "w-2 h-2 rounded-full mt-2 shrink-0",
@@ -242,7 +242,7 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
                     "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
                     isActive 
                       ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md" 
-                      : "hover:bg-accent text-muted-foreground hover:text-foreground hover:shadow-sm",
+                      : "hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-accent-foreground hover:shadow-sm",
                     "stagger-item"
                   )}
                   style={{ animationDelay: `${index * 0.05}s` }}
