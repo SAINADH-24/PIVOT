@@ -28,12 +28,12 @@ export function PlanBadge() {
   return (
     <button
       onClick={() => router.push('/pricing')}
-      className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full transition-all hover-scale cursor-pointer group",
-        isPremium
-          ? "bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white shadow-md hover:shadow-lg"
-          : "bg-secondary text-foreground border hover:bg-accent"
-      )}
+        className={cn(
+          "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full transition-all hover-scale cursor-pointer group",
+          isPremium
+            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md hover:shadow-lg"
+            : "bg-secondary text-foreground border hover:bg-accent"
+        )}
       title="Click to manage your plan"
     >
       {isPremium && (
