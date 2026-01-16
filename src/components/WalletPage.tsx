@@ -91,16 +91,32 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
     setSelectedPackage(pkg.id);
     setIsPurchasing(true);
     
-    // Simulate purchase - in real implementation, integrate with payment gateway
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast.success(`Successfully purchased ${pkg.points + pkg.bonus} Pivot Points!`, {
-      description: `₹${pkg.price} has been charged to your account.`
-    });
-    
-    setIsPurchasing(false);
-    setSelectedPackage(null);
-    setShowBuyPointsModal(false);
+    try {
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packageId: pkg.id }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Failed to start checkout', {
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
+      setIsPurchasing(false);
+      setSelectedPackage(null);
+    }
   };
   
   const [transactions] = useState<Transaction[]>([
@@ -228,18 +244,22 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
               <Coins className="w-10 h-10" />
             </div>
           </div>
-            <div className="flex items-center gap-4">
-              <Button 
-                className="bg-white text-blue-600 hover:bg-white/90 font-semibold hover-lift"
-                onClick={() => setShowBuyPointsModal(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Buy Points
-              </Button>
-              <Button variant="outline" className="border-white text-white hover:bg-white/10 font-semibold hover-scale">
-                Transfer
-              </Button>
-            </div>
+              <div className="flex items-center gap-4">
+                <Button 
+                  className="bg-white text-blue-600 hover:bg-white/90 font-semibold hover-lift"
+                  onClick={() => setShowBuyPointsModal(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Buy Points
+                </Button>
+                <Button 
+                  className="bg-white/20 text-white border-white/30 hover:bg-white/30 font-semibold hover-scale"
+                  variant="outline"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Transfer
+                </Button>
+              </div>
         </CardContent>
       </Card>
 

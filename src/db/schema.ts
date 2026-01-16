@@ -203,3 +203,18 @@ export const verification = sqliteTable("verification", {
     () => new Date(),
   ),
 });
+
+export const pivotPointTransactions = sqliteTable('pivot_point_transactions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull().references(() => user.id),
+  type: text('type').notNull(),
+  amount: integer('amount').notNull(),
+  priceInr: integer('price_inr'),
+  stripeSessionId: text('stripe_session_id'),
+  stripePaymentIntentId: text('stripe_payment_intent_id'),
+  packageLabel: text('package_label'),
+  bonusPoints: integer('bonus_points').default(0),
+  description: text('description').notNull(),
+  status: text('status').notNull().default('completed'),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+});
