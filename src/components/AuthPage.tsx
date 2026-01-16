@@ -128,25 +128,19 @@ export function AuthPage() {
       return;
     }
     
-    toast.success("Account created! Logging you in...");
-    
-    // Automatically log in after signup
-    const { error: signInError } = await authClient.signIn.email({
-      email: signupEmail,
-      password: signupPassword,
-    });
-
-    if (signInError) {
-      toast.error("Account created, but automatic login failed. Please login manually.");
-      setIsLoading(false);
-      const loginTab = document.querySelector('[value="login"]') as HTMLElement;
-      if (loginTab) loginTab.click();
-      return;
-    }
-
-    toast.success("Successfully logged in!");
+    toast.success("Account created successfully! Please login to continue.");
     setIsLoading(false);
-    window.location.replace("/");
+    
+    setSignupName('');
+    setSignupEmail('');
+    setSignupPassword('');
+    setSignupConfirmPassword('');
+    setSignupPhone('');
+    
+    setLoginEmail(signupEmail);
+    
+    const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+    if (loginTab) loginTab.click();
   };
 
   return (
