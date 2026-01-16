@@ -18,7 +18,7 @@ export function PricingPage() {
       id: "starter",
       description: "Great for regular users who need more data flexibility",
       price: {
-        primaryText: "$9.99/month",
+        primaryText: "₹799/month",
         secondaryText: "billed monthly",
       },
     },
@@ -27,7 +27,7 @@ export function PricingPage() {
       description: "Advanced features for power users and heavy data users",
       recommendText: "Most Popular",
       price: {
-        primaryText: "$24.99/month",
+        primaryText: "₹1,999/month",
         secondaryText: "billed monthly",
       },
     },
@@ -35,7 +35,7 @@ export function PricingPage() {
       id: "unlimited",
       description: "Everything you need for unlimited data transfers",
       price: {
-        primaryText: "$49.99/month",
+        primaryText: "₹3,999/month",
         secondaryText: "billed monthly",
       },
     },
