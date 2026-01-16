@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Coins, TrendingUp, Gift, ShoppingBag, Send, Plus } from 'lucide-react';
+import { ArrowLeft, Coins, TrendingUp, Gift, ShoppingBag, Send, Plus, Check, Sparkles, IndianRupee } from 'lucide-react';
 import { useSession } from '@/lib/auth-client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +25,83 @@ interface Transaction {
 
 export function WalletPage({ onNavigate }: WalletPageProps) {
   const { data: session, isPending } = useSession();
+  const [showBuyPointsModal, setShowBuyPointsModal] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+
+  // Pivot Points packages with INR pricing
+  const pointsPackages = [
+    { 
+      id: 1, 
+      points: 100, 
+      price: 49, 
+      perPoint: 0.49, 
+      popular: false,
+      bonus: 0,
+      label: 'Starter'
+    },
+    { 
+      id: 2, 
+      points: 500, 
+      price: 199, 
+      perPoint: 0.40, 
+      popular: false,
+      bonus: 25,
+      label: 'Basic'
+    },
+    { 
+      id: 3, 
+      points: 1000, 
+      price: 349, 
+      perPoint: 0.35, 
+      popular: true,
+      bonus: 100,
+      label: 'Popular'
+    },
+    { 
+      id: 4, 
+      points: 2500, 
+      price: 749, 
+      perPoint: 0.30, 
+      popular: false,
+      bonus: 375,
+      label: 'Value'
+    },
+    { 
+      id: 5, 
+      points: 5000, 
+      price: 1299, 
+      perPoint: 0.26, 
+      popular: false,
+      bonus: 1000,
+      label: 'Pro'
+    },
+    { 
+      id: 6, 
+      points: 10000, 
+      price: 2299, 
+      perPoint: 0.23, 
+      popular: false,
+      bonus: 2500,
+      label: 'Ultimate'
+    },
+  ];
+
+  const handleBuyPoints = async (pkg: typeof pointsPackages[0]) => {
+    setSelectedPackage(pkg.id);
+    setIsPurchasing(true);
+    
+    // Simulate purchase - in real implementation, integrate with payment gateway
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    toast.success(`Successfully purchased ${pkg.points + pkg.bonus} Pivot Points!`, {
+      description: `₹${pkg.price} has been charged to your account.`
+    });
+    
+    setIsPurchasing(false);
+    setSelectedPackage(null);
+    setShowBuyPointsModal(false);
+  };
   
   const [transactions] = useState<Transaction[]>([
     {
@@ -150,15 +228,18 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
               <Coins className="w-10 h-10" />
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Button className="bg-white text-blue-600 hover:bg-white/90 font-semibold hover-lift">
-              <Plus className="w-4 h-4 mr-2" />
-              Buy Points
-            </Button>
-            <Button variant="outline" className="border-white text-white hover:bg-white/10 font-semibold hover-scale">
-              Transfer
-            </Button>
-          </div>
+            <div className="flex items-center gap-4">
+              <Button 
+                className="bg-white text-blue-600 hover:bg-white/90 font-semibold hover-lift"
+                onClick={() => setShowBuyPointsModal(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Buy Points
+              </Button>
+              <Button variant="outline" className="border-white text-white hover:bg-white/10 font-semibold hover-scale">
+                Transfer
+              </Button>
+            </div>
         </CardContent>
       </Card>
 
@@ -301,7 +382,125 @@ export function WalletPage({ onNavigate }: WalletPageProps) {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
-    </div>
+        </Tabs>
+
+        {/* Buy Points Modal */}
+        <Dialog open={showBuyPointsModal} onOpenChange={setShowBuyPointsModal}>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-2xl">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                  <Coins className="w-5 h-5 text-white" />
+                </div>
+                Buy Pivot Points
+              </DialogTitle>
+              <DialogDescription>
+                Choose a package that fits your needs. Bigger packages = Better value!
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+              {pointsPackages.map((pkg) => (
+                <Card 
+                  key={pkg.id}
+                  className={cn(
+                    "relative cursor-pointer transition-all duration-300 hover:shadow-lg",
+                    pkg.popular && "ring-2 ring-blue-500 shadow-lg",
+                    selectedPackage === pkg.id && isPurchasing && "opacity-50"
+                  )}
+                  onClick={() => !isPurchasing && handleBuyPoints(pkg)}
+                >
+                  {pkg.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3">
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Most Popular
+                      </Badge>
+                    </div>
+                  )}
+                  {pkg.bonus > 0 && (
+                    <div className="absolute -top-2 -right-2">
+                      <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs">
+                        +{pkg.bonus} Bonus
+                      </Badge>
+                    </div>
+                  )}
+                  <CardContent className="p-5">
+                    <div className="text-center space-y-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        {pkg.label}
+                      </p>
+                      <div className="flex items-center justify-center gap-1">
+                        <Coins className="w-6 h-6 text-amber-500" />
+                        <span className="text-3xl font-bold">{pkg.points.toLocaleString()}</span>
+                      </div>
+                      {pkg.bonus > 0 && (
+                        <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                          + {pkg.bonus} bonus points
+                        </p>
+                      )}
+                      <div className="pt-2 border-t">
+                        <div className="flex items-center justify-center gap-1 text-2xl font-bold text-foreground">
+                          <IndianRupee className="w-5 h-5" />
+                          <span>{pkg.price}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          ₹{pkg.perPoint.toFixed(2)} per point
+                        </p>
+                      </div>
+                      <Button 
+                        className={cn(
+                          "w-full",
+                          pkg.popular 
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700" 
+                            : ""
+                        )}
+                        disabled={isPurchasing}
+                      >
+                        {selectedPackage === pkg.id && isPurchasing ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Processing...
+                          </div>
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4 mr-2" />
+                            Buy Now
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            
+            <div className="bg-muted/50 rounded-lg p-4 mt-2">
+              <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                <Gift className="w-4 h-4 text-blue-500" />
+                Why Buy Pivot Points?
+              </h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li className="flex items-center gap-2">
+                  <Check className="w-3 h-3 text-green-500" />
+                  Redeem for free data top-ups
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3 h-3 text-green-500" />
+                  Get exclusive vouchers & rewards
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3 h-3 text-green-500" />
+                  Unlock premium membership tiers
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3 h-3 text-green-500" />
+                  Points never expire
+                </li>
+              </ul>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
   );
 }
