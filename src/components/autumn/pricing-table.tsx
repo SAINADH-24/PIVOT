@@ -274,6 +274,7 @@ export const PricingCard = ({
   buttonProps,
 }: PricingCardProps) => {
   const { products, showFeatures } = usePricingTableContext("PricingCard");
+  const [isHovered, setIsHovered] = useState(false);
 
   const product = products.find((p) => p.id === productId);
 
@@ -304,11 +305,20 @@ export const PricingCard = ({
   return (
     <div
       className={cn(
-        " w-full h-full py-6 text-foreground border rounded-lg shadow-sm max-w-xl",
+        "w-full h-full py-6 text-foreground border rounded-lg shadow-sm max-w-xl transition-all duration-300 ease-out cursor-pointer",
+        isHovered && "scale-105 shadow-xl border-primary/50 -translate-y-2",
         isRecommended &&
           "lg:-translate-y-6 lg:shadow-lg dark:shadow-zinc-800/80 lg:h-[calc(100%+48px)] bg-secondary/40",
+        isRecommended && isHovered && "lg:-translate-y-8 scale-105 shadow-2xl",
         className
       )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        transform: isHovered 
+          ? `perspective(1000px) rotateX(2deg) ${isRecommended ? 'translateY(-2rem)' : 'translateY(-0.5rem)'} scale(1.03)` 
+          : undefined,
+      }}
     >
       {productDisplay?.recommend_text && (
         <RecommendedBadge recommended={productDisplay?.recommend_text} />
