@@ -16,6 +16,11 @@ const POINTS_PACKAGES = [
   { id: 6, points: 10000, price: 2299, bonus: 2500, label: 'Ultimate' },
 ];
 
+const DATA_PLANS = [
+  { id: 'weekend-power-pack', title: 'Weekend Power Pack', data: 5, validity: '3 days', price: 199, points: 50 },
+  { id: 'monthly-unlimited', title: 'Monthly Unlimited', data: 50, validity: '28 days', price: 599, points: 200 },
+];
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
@@ -28,11 +33,54 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { packageId } = body;
+    const { packageId, planId } = body;
+    const origin = request.headers.get('origin') || 'http://localhost:3000';
+
+    if (planId) {
+      const plan = DATA_PLANS.find(p => p.id === planId);
+      if (!plan) {
+        return NextResponse.json(
+          { error: 'Invalid plan' },
+          { status: 400 }
+        );
+      }
+
+      const checkoutSession = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: 'inr',
+              product_data: {
+                name: plan.title,
+                description: `${plan.data} GB data valid for ${plan.validity} + ${plan.points} Pivot Points`,
+              },
+              unit_amount: plan.price * 100,
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          userId: session.user.id,
+          type: 'data_plan',
+          planId: plan.id,
+          planTitle: plan.title,
+          dataGb: plan.data.toString(),
+          validity: plan.validity,
+          bonusPoints: plan.points.toString(),
+          priceInr: plan.price.toString(),
+        },
+        success_url: `${origin}/wallet/success?session_id={CHECKOUT_SESSION_ID}&type=plan`,
+        cancel_url: `${origin}/?page=dashboard`,
+      });
+
+      return NextResponse.json({ url: checkoutSession.url });
+    }
 
     if (!packageId) {
       return NextResponse.json(
-        { error: 'Package ID is required' },
+        { error: 'Package ID or Plan ID is required' },
         { status: 400 }
       );
     }
@@ -46,7 +94,6 @@ export async function POST(request: NextRequest) {
     }
 
     const totalPoints = pkg.points + pkg.bonus;
-    const origin = request.headers.get('origin') || 'http://localhost:3000';
 
     const checkoutSession = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -68,6 +115,7 @@ export async function POST(request: NextRequest) {
       ],
       metadata: {
         userId: session.user.id,
+        type: 'points_package',
         packageId: pkg.id.toString(),
         points: pkg.points.toString(),
         bonusPoints: pkg.bonus.toString(),

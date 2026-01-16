@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/lib/auth-client';
@@ -15,10 +15,12 @@ import {
   TrendingUp,
   ArrowRight,
   History,
-  Settings
+  Settings,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
@@ -26,6 +28,37 @@ interface DashboardProps {
 
 export function Dashboard({ onNavigate }: DashboardProps) {
   const { data: session, isPending } = useSession();
+  const [activatingPlan, setActivatingPlan] = useState<string | null>(null);
+
+  const handleActivatePlan = async (planId: string) => {
+    setActivatingPlan(planId);
+    
+    try {
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Failed to start checkout', {
+        description: error instanceof Error ? error.message : 'Please try again'
+      });
+      setActivatingPlan(null);
+    }
+  };
 
   if (isPending) {
     return (
@@ -111,6 +144,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   const aiSuggestions = [
     {
+      id: 'weekend-power-pack',
       title: 'Weekend Power Pack',
       data: '5 GB',
       validity: '3 days',
@@ -119,6 +153,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       recommended: true
     },
     {
+      id: 'monthly-unlimited',
       title: 'Monthly Unlimited',
       data: '50 GB',
       validity: '28 days',
@@ -243,17 +278,29 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     <span className="text-blue-600 dark:text-blue-400 font-semibold">{plan.points}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    {plan.price}
-                  </span>
-                  <Button 
-                    size="default" 
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover-lift"
-                  >
-                    Activate
-                  </Button>
-                </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                      {plan.price}
+                    </span>
+                    <Button 
+                      size="default" 
+                      className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover-lift"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleActivatePlan(plan.id);
+                      }}
+                      disabled={activatingPlan === plan.id}
+                    >
+                      {activatingPlan === plan.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        'Activate'
+                      )}
+                    </Button>
+                  </div>
               </div>
             ))}
           </div>
