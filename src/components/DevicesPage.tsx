@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Smartphone, Laptop, Tablet, Wifi, WifiOff, Plus, Trash2, Edit, Search, X, Lock } from 'lucide-react';
+import { ArrowLeft, Smartphone, Laptop, Tablet, Wifi, WifiOff, Plus, Trash2, Edit, Search, X, Lock, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useCustomer } from 'autumn-js/react';
 import { useRouter } from 'next/navigation';
+import { useSession } from '@/lib/auth-client';
 
 interface DevicesPageProps {
   onNavigate: (page: string) => void;
@@ -84,40 +85,12 @@ function validateUdiIdentifier(udi: string): { valid: boolean; error?: string } 
 
 export function DevicesPage({ onNavigate }: DevicesPageProps) {
   const { customer, check, isLoading: isCustomerLoading } = useCustomer();
+  const { data: session } = useSession();
   const router = useRouter();
   
-  const [devices, setDevices] = useState<Device[]>([
-    {
-      id: '1',
-      name: 'iPhone 14 Pro',
-      type: 'phone',
-      status: 'active',
-      dataUsed: 5.2,
-      lastConnected: 'Just now',
-      phoneNumber: '+1 234 567 8900',
-      udiId: '@sainadh-iphone'
-    },
-    {
-      id: '2',
-      name: 'MacBook Pro',
-      type: 'laptop',
-      status: 'active',
-      dataUsed: 8.7,
-      lastConnected: '2 hours ago',
-      phoneNumber: '+1 234 567 8901',
-      udiId: '@sainadh-macbook'
-    },
-    {
-      id: '3',
-      name: 'iPad Air',
-      type: 'tablet',
-      status: 'inactive',
-      dataUsed: 2.1,
-      lastConnected: '2 days ago',
-      phoneNumber: '+1 234 567 8902',
-      udiId: '@sainadh-ipad'
-    }
-  ]);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // ========== SEARCH STATE ==========
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,6 +106,77 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
   // Validation error states
   const [phoneError, setPhoneError] = useState('');
   const [udiError, setUdiError] = useState('');
+
+  // Format lastConnected time
+  const formatLastConnected = (dateStr: string | null) => {
+    if (!dateStr) return 'Never';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Fetch devices from API
+  const fetchDevices = useCallback(async (showRefreshToast = false) => {
+    if (!session?.user?.id) return;
+    
+    try {
+      if (showRefreshToast) {
+        setIsRefreshing(true);
+      }
+      
+      const response = await fetch(`/api/devices?userId=${session.user.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch devices');
+      }
+      
+      const data = await response.json();
+      
+      const formattedDevices: Device[] = data.map((d: any) => ({
+        id: d.id.toString(),
+        name: d.name,
+        type: d.type as 'phone' | 'laptop' | 'tablet',
+        status: d.status as 'active' | 'inactive',
+        dataUsed: d.dataUsed || 0,
+        lastConnected: formatLastConnected(d.lastConnected),
+        phoneNumber: d.phoneNumber,
+        udiId: d.udiId,
+      }));
+      
+      setDevices(formattedDevices);
+      
+      if (showRefreshToast) {
+        toast.success('Devices refreshed');
+      }
+    } catch (error) {
+      console.error('Error fetching devices:', error);
+      toast.error('Failed to load devices');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [session?.user?.id]);
+
+  // Initial fetch and real-time polling
+  useEffect(() => {
+    fetchDevices();
+    
+    // Poll for updates every 10 seconds for real-time feel
+    const interval = setInterval(() => {
+      fetchDevices();
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [fetchDevices]);
+
 
   // Get device limit from customer data
   const udiDevicesFeature = customer?.features?.['udi_devices'];
@@ -164,6 +208,11 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
   });
 
   const handleAddDevice = async () => {
+    if (!session?.user?.id) {
+      toast.error('Please log in to add devices');
+      return;
+    }
+
     // Validate device name
     if (!newDeviceName.trim()) {
       toast.error('Please enter a device name');
@@ -198,25 +247,39 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
       return;
     }
 
-    const newDevice: Device = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newDeviceName,
-      type: newDeviceType,
-      status: 'active',
-      dataUsed: 0,
-      lastConnected: 'Just now',
-      phoneNumber: newDevicePhone,
-      udiId: newDeviceUdi
-    };
-    setDevices([...devices, newDevice]);
-    setNewDeviceName('');
-    setNewDeviceType('phone');
-    setNewDevicePhone('');
-    setNewDeviceUdi('');
-    setPhoneError('');
-    setUdiError('');
-    setShowAddDevice(false);
-    toast.success(`${newDeviceName} added successfully!`);
+    try {
+      const response = await fetch('/api/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session.user.id,
+          name: newDeviceName.trim(),
+          type: newDeviceType,
+          phoneNumber: newDevicePhone.replace(/\s/g, ''),
+          udiId: newDeviceUdi.trim(),
+          status: 'active',
+          dataUsed: 0,
+          lastConnected: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to add device');
+      }
+
+      setNewDeviceName('');
+      setNewDeviceType('phone');
+      setNewDevicePhone('');
+      setNewDeviceUdi('');
+      setPhoneError('');
+      setUdiError('');
+      setShowAddDevice(false);
+      toast.success(`${newDeviceName} added successfully!`);
+      fetchDevices();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add device');
+    }
   };
 
   const handleEditDevice = (device: Device) => {
@@ -230,7 +293,7 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
     setShowEditDevice(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingDevice) return;
     
     // Validate device name
@@ -255,33 +318,61 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
       return;
     }
 
-    setDevices(devices.map(d => 
-      d.id === editingDevice.id 
-        ? { ...d, name: newDeviceName, type: newDeviceType, phoneNumber: newDevicePhone, udiId: newDeviceUdi }
-        : d
-    ));
-    
-    setShowEditDevice(false);
-    setEditingDevice(null);
-    setNewDeviceName('');
-    setNewDeviceType('phone');
-    setNewDevicePhone('');
-    setNewDeviceUdi('');
-    setPhoneError('');
-    setUdiError('');
-    toast.success('Device updated successfully!');
+    try {
+      const response = await fetch(`/api/devices?id=${editingDevice.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newDeviceName.trim(),
+          type: newDeviceType,
+          phoneNumber: newDevicePhone.replace(/\s/g, ''),
+          udiId: newDeviceUdi.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update device');
+      }
+
+      setShowEditDevice(false);
+      setEditingDevice(null);
+      setNewDeviceName('');
+      setNewDeviceType('phone');
+      setNewDevicePhone('');
+      setNewDeviceUdi('');
+      setPhoneError('');
+      setUdiError('');
+      toast.success('Device updated successfully!');
+      fetchDevices();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update device');
+    }
   };
 
-  const handleRemoveDevice = (id: string, name: string) => {
-    setDevices(devices.filter(d => d.id !== id));
-    toast.success(`${name} removed`);
+  const handleRemoveDevice = async (id: string, name: string) => {
+    try {
+      const response = await fetch(`/api/devices?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to remove device');
+      }
+
+      toast.success(`${name} removed`);
+      fetchDevices();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove device');
+    }
   };
 
   const totalDataUsed = devices.reduce((acc, device) => acc + device.dataUsed, 0);
   const activeDevices = devices.filter(d => d.status === 'active').length;
 
   // Show loading state
-  if (isCustomerLoading) {
+  if (isCustomerLoading || isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -290,7 +381,7 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
           </Button>
           <div>
             <h1 className="text-3xl font-bold">UDI Devices</h1>
-            <p className="text-muted-foreground">Loading...</p>
+            <p className="text-muted-foreground">Loading your devices...</p>
           </div>
         </div>
         <Card className="premium-card">
@@ -328,25 +419,36 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
               )}
             </div>
           </div>
-          <Dialog open={showAddDevice} onOpenChange={setShowAddDevice}>
-            <DialogTrigger asChild>
-              <Button 
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover-lift"
-                disabled={!canAddDevice}
-              >
-              {canAddDevice ? (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Device
-                </>
-              ) : (
-                <>
-                  <Lock className="w-4 h-4 mr-2" />
-                  Limit Reached
-                </>
-              )}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => fetchDevices(true)}
+              disabled={isRefreshing}
+              className="hover-scale"
+              title="Refresh devices"
+            >
+              <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
             </Button>
-          </DialogTrigger>
+            <Dialog open={showAddDevice} onOpenChange={setShowAddDevice}>
+              <DialogTrigger asChild>
+                <Button 
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover-lift"
+                  disabled={!canAddDevice}
+                >
+                {canAddDevice ? (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Device
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4 mr-2" />
+                    Limit Reached
+                  </>
+                )}
+              </Button>
+            </DialogTrigger>
           <DialogContent className="animate-scale-in">
             <DialogHeader>
               <DialogTitle className="text-2xl">Add New Device</DialogTitle>
@@ -428,9 +530,10 @@ export function DevicesPage({ onNavigate }: DevicesPageProps) {
               </Button>
               <Button onClick={handleAddDevice} className="hover-scale">Add Device</Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogContent>
+          </Dialog>
+          </div>
+        </div>
 
       {/* ========== SEARCH BAR ========== */}
       <Card className="animate-fade-in-up" style={{ animationDelay: '0.05s' }}>

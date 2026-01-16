@@ -118,6 +118,21 @@ export const userNotifications = sqliteTable('user_notifications', {
   createdAt: text('created_at').notNull(),
 });
 
+// User Devices table for Better Auth users (string IDs)
+export const userDevices = sqliteTable('user_devices', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull().references(() => user.id),
+  name: text('name').notNull(),
+  type: text('type').notNull(),
+  status: text('status').notNull().default('active'),
+  phoneNumber: text('phone_number').notNull(),
+  udiId: text('udi_id').notNull().unique(),
+  dataUsed: real('data_used').notNull().default(0),
+  lastConnected: text('last_connected'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
 
 // Auth tables for better-auth
 export const user = sqliteTable("user", {

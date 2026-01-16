@@ -15,6 +15,13 @@
       "when": 1765187621270,
       "tag": "0001_shiny_mercury",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1768525950689,
+      "tag": "0002_wet_winter_soldier",
+      "breakpoints": true
     }
   ]
 }

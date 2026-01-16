@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { udiDevices, users } from '@/db/schema';
-import { eq, like, and, or, desc } from 'drizzle-orm';
+import { userDevices, user } from '@/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 
-// Validation helpers
 function isValidPhoneNumber(phone: string): boolean {
-  // E.164 format: starts with +, followed by 1-15 digits
   const e164Regex = /^\+[1-9]\d{1,14}$/;
   return e164Regex.test(phone);
 }
@@ -23,7 +21,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    // Single device by ID
     if (id) {
       if (!id || isNaN(parseInt(id))) {
         return NextResponse.json(
@@ -34,8 +31,8 @@ export async function GET(request: NextRequest) {
 
       const device = await db
         .select()
-        .from(udiDevices)
-        .where(eq(udiDevices.id, parseInt(id)))
+        .from(userDevices)
+        .where(eq(userDevices.id, parseInt(id)))
         .limit(1);
 
       if (device.length === 0) {
@@ -48,43 +45,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(device[0], { status: 200 });
     }
 
-    // List devices with filters
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '10'), 100);
+    const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 100);
     const offset = parseInt(searchParams.get('offset') ?? '0');
     const userId = searchParams.get('userId');
     const phoneNumber = searchParams.get('phoneNumber');
     const udiId = searchParams.get('udiId');
 
-    let query = db.select().from(udiDevices);
     const conditions = [];
 
-    // Apply filters
     if (userId) {
-      if (isNaN(parseInt(userId))) {
-        return NextResponse.json(
-          { error: 'Valid userId is required', code: 'INVALID_USER_ID' },
-          { status: 400 }
-        );
-      }
-      conditions.push(eq(udiDevices.userId, parseInt(userId)));
+      conditions.push(eq(userDevices.userId, userId));
     }
 
     if (phoneNumber) {
-      conditions.push(eq(udiDevices.phoneNumber, phoneNumber));
+      conditions.push(eq(userDevices.phoneNumber, phoneNumber));
     }
 
     if (udiId) {
-      conditions.push(eq(udiDevices.udiId, udiId));
+      conditions.push(eq(userDevices.udiId, udiId));
     }
 
+    let results;
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      results = await db
+        .select()
+        .from(userDevices)
+        .where(and(...conditions))
+        .orderBy(desc(userDevices.createdAt))
+        .limit(limit)
+        .offset(offset);
+    } else {
+      results = await db
+        .select()
+        .from(userDevices)
+        .orderBy(desc(userDevices.createdAt))
+        .limit(limit)
+        .offset(offset);
     }
-
-    const results = await query
-      .orderBy(desc(udiDevices.createdAt))
-      .limit(limit)
-      .offset(offset);
 
     return NextResponse.json(results, { status: 200 });
   } catch (error) {
@@ -101,7 +98,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { userId, name, type, phoneNumber, udiId, status, dataUsed, lastConnected } = body;
 
-    // Validate required fields
     if (!userId) {
       return NextResponse.json(
         { error: 'userId is required', code: 'MISSING_USER_ID' },
@@ -157,7 +153,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate status if provided
     if (status && !isValidStatus(status)) {
       return NextResponse.json(
         { 
@@ -168,11 +163,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if userId exists
     const userExists = await db
       .select()
-      .from(users)
-      .where(eq(users.id, parseInt(userId)))
+      .from(user)
+      .where(eq(user.id, userId))
       .limit(1);
 
     if (userExists.length === 0) {
@@ -182,11 +176,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if udiId is unique
     const existingDevice = await db
       .select()
-      .from(udiDevices)
-      .where(eq(udiDevices.udiId, udiId.trim()))
+      .from(userDevices)
+      .where(eq(userDevices.udiId, udiId.trim()))
       .limit(1);
 
     if (existingDevice.length > 0) {
@@ -196,12 +189,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create device
     const now = new Date().toISOString();
     const newDevice = await db
-      .insert(udiDevices)
+      .insert(userDevices)
       .values({
-        userId: parseInt(userId),
+        userId: userId,
         name: name.trim(),
         type,
         phoneNumber: phoneNumber.trim(),
@@ -236,11 +228,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Check if device exists
     const existingDevice = await db
       .select()
-      .from(udiDevices)
-      .where(eq(udiDevices.id, parseInt(id)))
+      .from(userDevices)
+      .where(eq(userDevices.id, parseInt(id)))
       .limit(1);
 
     if (existingDevice.length === 0) {
@@ -253,7 +244,6 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { name, type, status, phoneNumber, udiId, dataUsed, lastConnected } = body;
 
-    // Validate type if provided
     if (type && !isValidDeviceType(type)) {
       return NextResponse.json(
         { 
@@ -264,7 +254,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Validate status if provided
     if (status && !isValidStatus(status)) {
       return NextResponse.json(
         { 
@@ -275,7 +264,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Validate phoneNumber if provided
     if (phoneNumber && !isValidPhoneNumber(phoneNumber)) {
       return NextResponse.json(
         { 
@@ -286,12 +274,11 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Check udiId uniqueness if provided
     if (udiId && udiId !== existingDevice[0].udiId) {
       const duplicateCheck = await db
         .select()
-        .from(udiDevices)
-        .where(eq(udiDevices.udiId, udiId.trim()))
+        .from(userDevices)
+        .where(eq(userDevices.udiId, udiId.trim()))
         .limit(1);
 
       if (duplicateCheck.length > 0) {
@@ -302,8 +289,7 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Build update object
-    const updates: any = {
+    const updates: Record<string, any> = {
       updatedAt: new Date().toISOString(),
     };
 
@@ -316,9 +302,9 @@ export async function PATCH(request: NextRequest) {
     if (lastConnected !== undefined) updates.lastConnected = lastConnected;
 
     const updatedDevice = await db
-      .update(udiDevices)
+      .update(userDevices)
       .set(updates)
-      .where(eq(udiDevices.id, parseInt(id)))
+      .where(eq(userDevices.id, parseInt(id)))
       .returning();
 
     return NextResponse.json(updatedDevice[0], { status: 200 });
@@ -343,11 +329,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Check if device exists
     const existingDevice = await db
       .select()
-      .from(udiDevices)
-      .where(eq(udiDevices.id, parseInt(id)))
+      .from(userDevices)
+      .where(eq(userDevices.id, parseInt(id)))
       .limit(1);
 
     if (existingDevice.length === 0) {
@@ -358,8 +343,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     const deleted = await db
-      .delete(udiDevices)
-      .where(eq(udiDevices.id, parseInt(id)))
+      .delete(userDevices)
+      .where(eq(userDevices.id, parseInt(id)))
       .returning();
 
     return NextResponse.json(
