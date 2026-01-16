@@ -241,33 +241,24 @@ export function QrScanner({
   };
 
   // Generate QR code payload based on priority (with hide phone logic)
-  const generateQrPayload = useCallback((): string => {
-    // If hiding phone, only use UDI
-    if (hidePhone && userUdi) {
-      return userUdi;
-    }
-    
-    // Priority 1: JSON with phone and UDI
-    if (userPhone && userUdi) {
-      return JSON.stringify({
-        type: "pivotal",
-        phone: userPhone,
-        udi: userUdi
-      });
-    }
-    
-    // Priority 2: Plain phone number
-    if (userPhone) {
-      return userPhone;
-    }
-    
-    // Priority 3: UDI text
-    if (userUdi) {
-      return userUdi;
-    }
-    
-    return 'No recipient data available';
-  }, [userPhone, userUdi, hidePhone]);
+    const generateQrPayload = useCallback((): string => {
+      // If hiding phone, only use UDI
+      if (hidePhone && userUdi) {
+        return userUdi;
+      }
+      
+      // Priority 1: UDI (most reliable for lookup)
+      if (userUdi) {
+        return userUdi;
+      }
+      
+      // Priority 2: Phone number
+      if (userPhone) {
+        return userPhone;
+      }
+      
+      return 'No recipient data available';
+    }, [userPhone, userUdi, hidePhone]);
 
   // Generate QR code image (non-blocking with requestIdleCallback)
   const generateMyQrCode = useCallback(async () => {
@@ -283,15 +274,15 @@ export function QrScanner({
           console.log('📝 [QR Scanner] QR Payload:', payload);
           
           // Generate QR code with high contrast and appropriate size
-          const qrDataUrl = await QRCode.toDataURL(payload, {
-            width: 280,
-            margin: 2,
-            color: {
-              dark: '#000000',
-              light: '#FFFFFF'
-            },
-            errorCorrectionLevel: 'M'
-          });
+            const qrDataUrl = await QRCode.toDataURL(payload, {
+              width: 300,
+              margin: 3,
+              color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+              },
+              errorCorrectionLevel: 'H'
+            });
           
           setMyQrDataUrl(qrDataUrl);
           console.log('✅ [QR Scanner] QR Code generated successfully');
@@ -1258,13 +1249,13 @@ export function QrScanner({
                       {/* QR Code Display */}
                       <div className="bg-white p-4 rounded-xl flex items-center justify-center">
                         {myQrDataUrl ? (
-                          <img 
-                            src={myQrDataUrl} 
-                            alt="My QR Code" 
-                            className="w-[280px] h-[280px]"
-                            style={{ imageRendering: 'pixelated' }}
-                          />
-                        ) : (
+                            <img 
+                              src={myQrDataUrl} 
+                              alt="My QR Code" 
+                              className="w-[300px] h-[300px]"
+                              style={{ imageRendering: 'crisp-edges' }}
+                            />
+                          ) : (
                           <div className="w-[280px] h-[280px] flex items-center justify-center">
                             <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
                           </div>

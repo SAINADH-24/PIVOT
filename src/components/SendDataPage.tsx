@@ -173,7 +173,17 @@ export function SendDataPage({ onNavigate }: SendDataPageProps) {
   };
 
   const handleQrScanSuccess = (decodedText: string) => {
-    setRecipientQuery(decodedText.trim());
+    let lookupValue = decodedText.trim();
+    
+    try {
+      const parsed = JSON.parse(decodedText);
+      if (parsed.type === 'pivotal' || parsed.udi || parsed.phone) {
+        lookupValue = parsed.udi || parsed.phone || parsed.email || decodedText.trim();
+      }
+    } catch {
+    }
+    
+    setRecipientQuery(lookupValue);
     setShowQrScanner(false);
     toast.success('QR code scanned! Looking up user...');
   };
