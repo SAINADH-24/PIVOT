@@ -7,14 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { authClient } from '@/lib/auth-client';
-import { Zap, AlertCircle } from 'lucide-react';
+import { Zap, AlertCircle, Phone, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
 export function AuthPage() {
   const router = useRouter();
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [loginEmail, setLoginEmail] = useState('');
+  const [loginPhone, setLoginPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginRememberMe, setLoginRememberMe] = useState(false);
   const [signupName, setSignupName] = useState('');
@@ -29,6 +31,45 @@ export function AuthPage() {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    
+    if (loginMethod === 'phone') {
+      try {
+        const response = await fetch('/api/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: loginPhone, password: loginPassword }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          setError(data.error || 'Invalid phone number or password.');
+          setIsLoading(false);
+          return;
+        }
+        
+        const { data: signInData, error: signInError } = await authClient.signIn.email({
+          email: data.email,
+          password: loginPassword,
+          rememberMe: loginRememberMe,
+          callbackURL: "/"
+        });
+
+        if (signInError?.code) {
+          setError('Login failed. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+        
+        toast.success('Successfully logged in!');
+        setIsLoading(false);
+        window.location.replace("/");
+      } catch {
+        setError('An error occurred. Please try again.');
+        setIsLoading(false);
+      }
+      return;
+    }
     
     const { data, error: authError } = await authClient.signIn.email({
       email: loginEmail,
@@ -45,7 +86,6 @@ export function AuthPage() {
     
     toast.success('Successfully logged in!');
     setIsLoading(false);
-    // Force a full reload to ensure session is recognized
     window.location.replace("/");
   };
 
@@ -53,13 +93,16 @@ export function AuthPage() {
     e.preventDefault();
     setError('');
 
-    // Validate password confirmation
+    if (!signupPhone || signupPhone.trim().length < 10) {
+      setError('Please enter a valid phone number.');
+      return;
+    }
+
     if (signupPassword !== signupConfirmPassword) {
       setError('Passwords do not match.');
       return;
     }
 
-    // Validate password length
     if (signupPassword.length < 8) {
       setError('Password must be at least 8 characters long.');
       return;
@@ -67,11 +110,13 @@ export function AuthPage() {
 
     setIsLoading(true);
     
+    const normalizedPhone = signupPhone.replace(/[\s\-\(\)]/g, '');
+    
     const { data, error: authError } = await authClient.signUp.email({
       email: signupEmail,
       name: signupName,
       password: signupPassword,
-      phoneNumber: signupPhone,
+      phoneNumber: normalizedPhone,
     });
 
     if (authError?.code) {
@@ -130,33 +175,76 @@ export function AuthPage() {
               </TabsList>
               
               <TabsContent value="login" className="animate-fade-in-up">
-                <form onSubmit={handleLogin} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email" className="text-base font-semibold">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      required
-                      autoComplete="off"
-                      className="h-12 text-base"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password" className="text-base font-semibold">Password</Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="Enter your password"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      required
-                      autoComplete="off"
-                      className="h-12 text-base"
-                    />
-                  </div>
+                  <form onSubmit={handleLogin} className="space-y-5">
+                    <div className="flex gap-2 mb-4">
+                      <Button
+                        type="button"
+                        variant={loginMethod === 'email' ? 'default' : 'outline'}
+                        className={cn(
+                          "flex-1 h-10",
+                          loginMethod === 'email' && "bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
+                        )}
+                        onClick={() => { setLoginMethod('email'); setError(''); }}
+                      >
+                        <Mail className="w-4 h-4 mr-2" />
+                        Email
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={loginMethod === 'phone' ? 'default' : 'outline'}
+                        className={cn(
+                          "flex-1 h-10",
+                          loginMethod === 'phone' && "bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
+                        )}
+                        onClick={() => { setLoginMethod('phone'); setError(''); }}
+                      >
+                        <Phone className="w-4 h-4 mr-2" />
+                        Phone
+                      </Button>
+                    </div>
+                    
+                    {loginMethod === 'email' ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="login-email" className="text-base font-semibold">Email</Label>
+                        <Input
+                          id="login-email"
+                          type="email"
+                          placeholder="Enter your email"
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          required
+                          autoComplete="off"
+                          className="h-12 text-base"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label htmlFor="login-phone" className="text-base font-semibold">Phone Number</Label>
+                        <Input
+                          id="login-phone"
+                          type="tel"
+                          placeholder="Enter your phone number"
+                          value={loginPhone}
+                          onChange={(e) => setLoginPhone(e.target.value)}
+                          required
+                          autoComplete="off"
+                          className="h-12 text-base"
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password" className="text-base font-semibold">Password</Label>
+                      <Input
+                        id="login-password"
+                        type="password"
+                        placeholder="Enter your password"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        required
+                        autoComplete="off"
+                        className="h-12 text-base"
+                      />
+                    </div>
                   <div className="flex items-center space-x-2">
                     <input
                       id="remember-me"
@@ -201,59 +289,72 @@ export function AuthPage() {
               </TabsContent>
               
               <TabsContent value="signup" className="animate-fade-in-up">
-                <form onSubmit={handleSignup} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name" className="text-base font-semibold">Full Name</Label>
-                    <Input
-                      id="signup-name"
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={signupName}
-                      onChange={(e) => setSignupName(e.target.value)}
-                      required
-                      autoComplete="off"
-                      className="h-12 text-base"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email" className="text-base font-semibold">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      required
-                      autoComplete="off"
-                      className="h-12 text-base"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password" className="text-base font-semibold">Password</Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="Create a password (min. 8 characters)"
-                      value={signupPassword}
-                      onChange={(e) => setSignupPassword(e.target.value)}
-                      required
-                      autoComplete="off"
-                      className="h-12 text-base"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-confirm-password" className="text-base font-semibold">Confirm Password</Label>
-                    <Input
-                      id="signup-confirm-password"
-                      type="password"
-                      placeholder="Confirm your password"
-                      value={signupConfirmPassword}
-                      onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                      required
-                      autoComplete="off"
-                      className="h-12 text-base"
-                    />
-                  </div>
+                  <form onSubmit={handleSignup} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-name" className="text-base font-semibold">Full Name</Label>
+                      <Input
+                        id="signup-name"
+                        type="text"
+                        placeholder="Enter your full name"
+                        value={signupName}
+                        onChange={(e) => setSignupName(e.target.value)}
+                        required
+                        autoComplete="off"
+                        className="h-12 text-base"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email" className="text-base font-semibold">Email</Label>
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="Enter your email"
+                        value={signupEmail}
+                        onChange={(e) => setSignupEmail(e.target.value)}
+                        required
+                        autoComplete="off"
+                        className="h-12 text-base"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-phone" className="text-base font-semibold">Phone Number</Label>
+                      <Input
+                        id="signup-phone"
+                        type="tel"
+                        placeholder="Enter your phone number"
+                        value={signupPhone}
+                        onChange={(e) => setSignupPhone(e.target.value)}
+                        required
+                        autoComplete="off"
+                        className="h-12 text-base"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password" className="text-base font-semibold">Password</Label>
+                      <Input
+                        id="signup-password"
+                        type="password"
+                        placeholder="Create a password (min. 8 characters)"
+                        value={signupPassword}
+                        onChange={(e) => setSignupPassword(e.target.value)}
+                        required
+                        autoComplete="off"
+                        className="h-12 text-base"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-confirm-password" className="text-base font-semibold">Confirm Password</Label>
+                      <Input
+                        id="signup-confirm-password"
+                        type="password"
+                        placeholder="Confirm your password"
+                        value={signupConfirmPassword}
+                        onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                        required
+                        autoComplete="off"
+                        className="h-12 text-base"
+                      />
+                    </div>
                   {error && (
                     <div className={cn(
                       "flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive animate-shake"
