@@ -34,7 +34,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { packageId, planId } = body;
-    const origin = request.headers.get('origin') || 'http://localhost:3000';
+    const origin =
+      request.headers.get('origin') ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000');
 
     if (planId) {
       const plan = DATA_PLANS.find(p => p.id === planId);
